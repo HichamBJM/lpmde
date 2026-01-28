@@ -19,7 +19,7 @@ var/log/*
 !var/log/.gitkeep
 
 # Vendor (sera copié depuis composer)
-# vendor/
+vendor/
 
 # Configuration locale
 .env.local

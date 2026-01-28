@@ -38,6 +38,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-composer-
 
+      - name: Create .env file for CI
+        run: |
+          echo "APP_ENV=test" > .env
+          echo "APP_SECRET=test_secret_for_ci_only" >> .env
+          echo "DATABASE_URL=postgresql://test:test@localhost:5432/test?serverVersion=16" >> .env
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-ansi --no-interaction --no-progress --optimize-autoloader
 
@@ -114,6 +120,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env file for tests
+        run: |
+          echo "APP_ENV=test" > .env
+          echo "APP_SECRET=test_secret_for_ci_only" >> .env
+          echo "DATABASE_URL=postgresql://test:test@localhost:5432/test?serverVersion=16" >> .env
+
       - name: Download vendor artifact
         uses: actions/download-artifact@v4
         with:
@@ -144,7 +156,13 @@ jobs:
         continue-on-error: true
 
   e2e-test:
-    runs-on: ubuntu-latest
+    runs-on: uCreate .env file for tests
+        run: |
+          echo "APP_ENV=test" > .env
+          echo "APP_SECRET=test_secret_for_ci_only" >> .env
+          echo "DATABASE_URL=postgresql://test:test@localhost:5432/test?serverVersion=16" >> .env
+
+      - name: buntu-latest
     needs: install
     steps:
       - name: Checkout code

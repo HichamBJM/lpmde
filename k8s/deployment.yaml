@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lpmde-app
+  namespace: lpmde-production
+  labels:
+    app: lpmde
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: lpmde
+  template:
+    metadata:
+      labels:
+        app: lpmde
+    spec:
+      containers:
+      - name: lpmde-app
+        image: ghcr.io/br-y-/lpmde_git:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        env:
+        - name: APP_ENV
+          value: "prod"
+        - name: APP_DEBUG
+          value: "0"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: lpmde-secrets
+              key: database-url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      imagePullSecrets:
+      - name: ghcr-secret

@@ -217,7 +217,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment:
       name: staging
-      url: https://staging.example.com
+      url: https://lpmde.abrokenwebsite.com
     steps:
       - name: Deploy to staging
         uses: appleboy/ssh-action@v1.0.0
@@ -238,16 +238,49 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     environment:
       name: production
-      url: https://production.example.com
+      url: https://lpmde.abrokenwebsite.com
     steps:
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
         with:
-          host: ${{ secrets.PRODUCTION_SERVER }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd ${{ secrets.PRODUCTION_PATH }}
-            docker pull ghcr.io/${{ github.repository }}:latest
-            docker-compose down
-            docker-compose up -d
+          version: 'latest'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace lpmde-production --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy PostgreSQL
+        run: |
+          kubectl apply -f k8s/postgres-pvc.yaml
+          kubectl apply -f k8s/postgres-deployment.yaml
+          kubectl apply -f k8s/postgres-service.yaml
+          echo "Waiting for PostgreSQL to be ready..."
+          kubectl wait --for=condition=ready pod -l app=postgres -n lpmde-production --timeout=180s || true
+
+      - name: Deploy application
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+          kubectl set image deployment/lpmde-app lpmde-app=ghcr.io/${{ github.repository }}:latest -n lpmde-production
+          kubectl rollout status deployment/lpmde-app -n lpmde-production --timeout=300s
+          
+      - name: Run database migrations
+        run: |
+          kubectl delete job lpmde-migrations -n lpmde-production --ignore-not-found=true
+          kubectl apply -f k8s/migration-job.yaml
+          kubectl wait --for=condition=complete job/lpmde-migrations -n lpmde-production --timeout=300s
+          kubectl logs job/lpmde-migrations -n lpmde-production
+          
+      - name: Show deployment status
+        run: |
+          kubectl get all -n lpmde-production

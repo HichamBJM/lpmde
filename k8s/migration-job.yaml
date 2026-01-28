@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lpmde-migrations
+  namespace: lpmde-production
+  labels:
+    app: lpmde
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: migrations
+        image: ghcr.io/br-y-/lpmde_git:latest
+        imagePullPolicy: Always
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Waiting for database to be ready..."
+          until php bin/console dbal:run-sql "SELECT 1" > /dev/null 2>&1; do
+            echo "Waiting for database connection..."
+            sleep 3
+          done
+          echo "Database is ready!"
+          echo "Running migrations..."
+          php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+          echo "Migrations completed!"
+        env:
+        - name: APP_ENV
+          value: "prod"
+        - name: APP_DEBUG
+          value: "0"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: lpmde-secrets
+              key: database-url
+      imagePullSecrets:
+      - name: ghcr-secret
+  backoffLimit: 3

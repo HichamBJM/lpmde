@@ -54,7 +54,7 @@
 
     <coverage>
         <report>
-            <clover outputFile="var/log/cobertura.xml"/>
+             <cobertura outputFile="var/log/cobertura.xml"/>
             <html outputDirectory="var/coverage" lowUpperBound="50" highLowerBound="80"/>
         </report>
     </coverage>

@@ -100,7 +100,7 @@ e2e-test-job:
     - docker-php-ext-install pdo pdo_mysql
   script:
     - echo "Running E2E tests"
-    - php bin/phpunit --testsuite=e2e --no-coverage
+    - php bin/phpunit -c phpunit.xml.dist --testsuite=e2e --no-coverage
   allow_failure: false
   only:
     - branches

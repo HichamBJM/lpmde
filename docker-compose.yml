@@ -25,14 +25,15 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-lpmde}
-      MYSQL_USER: ${MYSQL_USER:-lpmde}
+      MYSQL_USER: ${MYSQL_USER:-postgres}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-lpmde}
     volumes:
       - db-data:/var/lib/mysql
     networks:
       - lpmde-network
-    ports:
-      - "${DB_PORT:-3306}:3306"
+    # en prod, évite d'exposer :
+    # ports:
+    #   - "${DB_PORT:-3306}:3306"
 
 ###> doctrine/doctrine-bundle ###
   database:
@@ -54,7 +55,6 @@ networks:
 
 volumes:
   db-data:
-
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###

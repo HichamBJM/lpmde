@@ -232,10 +232,10 @@ jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     needs: build-image
-    if: github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: staging
-      url: https://lpmde.abrokenwebsite.com
+      url: https://localhost
     steps:
       - name: Deploy to staging
         uses: appleboy/ssh-action@v1.0.0

@@ -5,7 +5,14 @@
 {% block body %}
 <main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-12">
     <h1 class="text-3xl font-bold uppercase tracking-tight mb-2">Mes commandes</h1>
-    <p class="text-slate-400 mb-8">Suivez les statuts et l'orchestration d'expédition.</p>
+    <p class="text-slate-400 mb-4">Suivez les statuts et l'orchestration d'expédition.</p>
+
+    {% if isAdmin %}
+        <div class="flex gap-2 mb-8">
+            <a href="{{ path('app_commandes', {tab: 'mine'}) }}" class="px-4 py-2 rounded-lg text-sm font-semibold {{ activeTab == 'mine' ? 'bg-primary text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20' }}">Mes commandes</a>
+            <a href="{{ path('app_commandes', {tab: 'to-process'}) }}" class="px-4 py-2 rounded-lg text-sm font-semibold {{ activeTab == 'to-process' ? 'bg-primary text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20' }}">Commandes à traiter</a>
+        </div>
+    {% endif %}
 
     {% if orders is empty %}
         <div class="bg-white/5 border border-white/10 rounded-xl p-6 text-slate-400">Aucune commande pour le moment.</div>

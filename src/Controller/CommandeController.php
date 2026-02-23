@@ -63,7 +63,11 @@ final class CommandeController extends AbstractController
         }
 
         try {
-            $order = $orderService->createFromCart($cartService->getDetailedItems(), $cartService->totalAmount());
+            $order = $orderService->createFromCart(
+                $cartService->getDetailedItems(),
+                $cartService->totalAmount(),
+                (string) $request->getSession()->get('user_email', '')
+            );
             $order = $orderService->transition((string) $order['number'], OrderStatus::PENDING_PAYMENT, 'Commande créée, attente de paiement');
             $order = $orderService->transition((string) $order['number'], OrderStatus::PAID, 'Paiement validé');
             $order = $orderService->transition((string) $order['number'], OrderStatus::PREPARING, 'Préparation logistique lancée');
@@ -90,9 +94,20 @@ final class CommandeController extends AbstractController
             return $this->redirectToRoute('app_login_keycloak');
         }
 
+        $isAdmin = (bool) $request->getSession()->get('is_admin', false);
+        $activeTab = (string) $request->query->get('tab', 'mine');
+
+        if ($isAdmin && 'to-process' === $activeTab) {
+            $orders = $orderService->toProcess();
+        } else {
+            $orders = $orderService->forCustomer((string) $request->getSession()->get('user_email', ''));
+            $activeTab = 'mine';
+        }
+
         return $this->render('commande/commandes.html.twig', [
-            'orders' => $orderService->all(),
-            'isAdmin' => (bool) $request->getSession()->get('is_admin', false),
+            'orders' => $orders,
+            'isAdmin' => $isAdmin,
+            'activeTab' => $activeTab,
         ]);
     }
 

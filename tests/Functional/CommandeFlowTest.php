@@ -32,6 +32,17 @@ class CommandeFlowTest extends WebTestCase
         self::assertResponseRedirects('/login/keycloak');
     }
 
+    public function testAdminSeesBothTabsOnCommandesPage(): void
+    {
+        $client = static::createClient();
+        $this->authenticate($client, true);
+
+        $client->request('GET', '/commandes');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('a', 'Mes commandes');
+        self::assertSelectorTextContains('a', 'Commandes à traiter');
+    }
+
     public function testAdminCanUpdateOrderStatuses(): void
     {
         $client = static::createClient();

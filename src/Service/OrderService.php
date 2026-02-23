@@ -28,7 +28,7 @@ class OrderService
     }
 
     /** @param list<array{sku:string,name:string,price:float,quantity:int,subtotal:float}> $items */
-    public function createFromCart(array $items, float $totalAmount): array
+    public function createFromCart(array $items, float $totalAmount, string $customerEmail): array
     {
         if ([] === $items) {
             throw new InvalidArgumentException('Le panier est vide.');
@@ -40,6 +40,7 @@ class OrderService
             'totalAmount' => round($totalAmount, 2),
             'items' => $items,
             'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'customerEmail' => $customerEmail,
             'history' => [
                 [
                     'at' => (new \DateTimeImmutable())->format(DATE_ATOM),
@@ -54,6 +55,28 @@ class OrderService
         $this->save($orders);
 
         return $order;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function forCustomer(string $customerEmail): array
+    {
+        return array_values(array_filter(
+            $this->all(),
+            static fn (array $order): bool => ($order['customerEmail'] ?? '') === $customerEmail
+        ));
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function toProcess(): array
+    {
+        return array_values(array_filter(
+            $this->all(),
+            static fn (array $order): bool => in_array(
+                (string) ($order['status'] ?? ''),
+                [OrderStatus::PENDING_PAYMENT, OrderStatus::PAID, OrderStatus::PREPARING],
+                true
+            )
+        ));
     }
 
     public function find(string $number): ?array

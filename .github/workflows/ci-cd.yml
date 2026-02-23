@@ -207,16 +207,20 @@ jobs:
   sonar-audit:
     runs-on: ubuntu-latest
     needs: [unit-test, functional-test, e2e-test]
-    if: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: SonarCloud scan
+        if: ${{ secrets.SONAR_TOKEN != '' }}
         uses: SonarSource/sonarcloud-github-action@v2.3.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarCloud skipped (missing SONAR_TOKEN)
+        if: ${{ secrets.SONAR_TOKEN == '' }}
+        run: echo "SONAR_TOKEN is not configured, skipping sonar-audit job."
 
   build-image:
     runs-on: ubuntu-latest

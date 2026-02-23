@@ -13,7 +13,8 @@
             <a class="hover:text-primary transition-colors" href="#">Figurines</a>
             <a class="hover:text-primary transition-colors" href="#">Games</a>
             <a class="hover:text-primary transition-colors" href="#">Troc Zone</a>
-            <a class="hover:text-primary transition-colors" href="#">Fanzine</a>
+            <a class="hover:text-primary transition-colors" href="{{ path('app_panier') }}">Panier</a>
+            <a class="hover:text-primary transition-colors" href="{{ path('app_commandes') }}">Commandes</a>
         </nav>
         <!-- Search and Icons -->
         <div class="flex items-center gap-4 flex-1 justify-end">
@@ -24,11 +25,11 @@
                     class="w-full bg-white/5 border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-primary focus:border-primary"
                     placeholder="Search the crypt..." type="text" />
             </div>
-            <button class="p-2 hover:bg-white/5 rounded-full relative">
+            <a href="{{ path('app_panier') }}" class="p-2 hover:bg-white/5 rounded-full relative">
                 <span class="text-white material-symbols-outlined">shopping_cart</span>
                 <span
-                    class="absolute top-1 right-1 bg-primary text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">3</span>
-            </button>
+                    class="absolute top-1 right-1 bg-primary text-[10px] min-w-4 h-4 rounded-full px-1 flex items-center justify-center font-bold">{{ app.session.get('cart', {})|length }}</span>
+            </a>
 
             <!-- User Auth Section -->
             {% if app.session.get('is_authenticated') %}

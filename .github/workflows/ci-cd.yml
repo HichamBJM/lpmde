@@ -13,6 +13,8 @@ permissions:
 
 env:
   PHP_VERSION: '8.2'
+  DB_USER: 'ci_user'
+  DB_PASSWORD: 'ci_password'
 
 jobs:
   install:
@@ -39,7 +41,7 @@ jobs:
             ${{ runner.os }}-composer-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
+        run: composer install --prefer-dist --no-interaction --no-progress --no-scripts
 
       - name: Upload vendor artifact
         uses: actions/upload-artifact@v4

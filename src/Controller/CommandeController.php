@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Enum\OrderStatus;
 use App\Message\ShippingRequested;
+use App\Repository\UserRepository;
 use App\Service\CartService;
 use App\Service\OrderService;
 use InvalidArgumentException;
@@ -86,7 +87,7 @@ final class CommandeController extends AbstractController
     }
 
     #[Route('/commandes', name: 'app_commandes', methods: ['GET'])]
-    public function commandes(Request $request, OrderService $orderService): Response
+    public function commandes(Request $request, OrderService $orderService, UserRepository $userRepository): Response
     {
         if (!$request->getSession()->get('is_authenticated')) {
             $this->addFlash('warning', 'Vous devez être connecté pour consulter vos commandes.');
@@ -94,7 +95,7 @@ final class CommandeController extends AbstractController
             return $this->redirectToRoute('app_login_keycloak');
         }
 
-        $isAdmin = (bool) $request->getSession()->get('is_admin', false);
+        $isAdmin = $this->isAdmin($request, $userRepository);
         $activeTab = (string) $request->query->get('tab', 'mine');
 
         if ($isAdmin && 'to-process' === $activeTab) {
@@ -112,9 +113,9 @@ final class CommandeController extends AbstractController
     }
 
     #[Route('/commandes/{number}/expedier', name: 'app_commande_expedier', methods: ['POST'])]
-    public function expedier(Request $request, string $number, OrderService $orderService): RedirectResponse
+    public function expedier(Request $request, string $number, OrderService $orderService, UserRepository $userRepository): RedirectResponse
     {
-        if (!(bool) $request->getSession()->get('is_admin', false)) {
+        if (!$this->isAdmin($request, $userRepository)) {
             $this->addFlash('error', 'Action réservée aux administrateurs.');
 
             return $this->redirectToRoute('app_commandes');
@@ -131,9 +132,9 @@ final class CommandeController extends AbstractController
     }
 
     #[Route('/commandes/{number}/livrer', name: 'app_commande_livrer', methods: ['POST'])]
-    public function livrer(Request $request, string $number, OrderService $orderService): RedirectResponse
+    public function livrer(Request $request, string $number, OrderService $orderService, UserRepository $userRepository): RedirectResponse
     {
-        if (!(bool) $request->getSession()->get('is_admin', false)) {
+        if (!$this->isAdmin($request, $userRepository)) {
             $this->addFlash('error', 'Action réservée aux administrateurs.');
 
             return $this->redirectToRoute('app_commandes');
@@ -147,5 +148,23 @@ final class CommandeController extends AbstractController
         }
 
         return $this->redirectToRoute('app_commandes');
+    }
+
+    private function isAdmin(Request $request, UserRepository $userRepository): bool
+    {
+        $session = $request->getSession();
+        $userId = $session->get('user_id');
+
+        if (null !== $userId) {
+            $user = $userRepository->find((int) $userId);
+            if (null !== $user) {
+                $isAdmin = in_array('ROLE_ADMIN', $user->getRoles(), true);
+                $session->set('is_admin', $isAdmin);
+
+                return $isAdmin;
+            }
+        }
+
+        return (bool) $session->get('is_admin', false);
     }
 }

@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Panier{% endblock %}
+
+{% block body %}
+<main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-12 space-y-10">
+    <section>
+        <h1 class="text-3xl font-bold uppercase tracking-tight">Panier</h1>
+        <p class="text-slate-400 mt-2">Ajoutez des produits, ajustez les quantités puis validez votre commande.</p>
+    </section>
+
+    <section class="grid md:grid-cols-2 gap-6">
+        {% for sku, product in catalog %}
+            <article class="bg-white/5 border border-white/10 rounded-xl p-5 flex items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-semibold text-lg text-white">{{ product.name }}</h2>
+                    <p class="text-primary font-bold mt-1">{{ product.price|number_format(2, ',', ' ') }} €</p>
+                </div>
+                <form method="post" action="{{ path('app_panier_ajouter', {sku: sku}) }}">
+                    <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-semibold">Ajouter</button>
+                </form>
+            </article>
+        {% endfor %}
+    </section>
+
+    <section class="bg-white/5 border border-white/10 rounded-xl p-6">
+        <h2 class="text-2xl font-semibold mb-4">Contenu du panier</h2>
+
+        {% if items is empty %}
+            <p class="text-slate-400">Votre panier est vide.</p>
+        {% else %}
+            <div class="space-y-4">
+                {% for item in items %}
+                    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+                        <div>
+                            <p class="font-semibold text-white">{{ item.name }}</p>
+                            <p class="text-sm text-slate-400">{{ item.price|number_format(2, ',', ' ') }} € / unité</p>
+                        </div>
+                        <form method="post" action="{{ path('app_panier_maj', {sku: item.sku}) }}" class="flex items-center gap-2">
+                            <input type="number" min="0" name="quantity" value="{{ item.quantity }}" class="w-20 bg-white/10 border border-white/20 rounded px-2 py-1">
+                            <button class="bg-white/10 hover:bg-white/20 px-3 py-1 rounded">Mettre à jour</button>
+                        </form>
+                        <p class="font-semibold text-primary">{{ item.subtotal|number_format(2, ',', ' ') }} €</p>
+                        <form method="post" action="{{ path('app_panier_supprimer', {sku: item.sku}) }}">
+                            <button class="text-red-400 hover:text-red-300">Supprimer</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="mt-6 flex items-center justify-between">
+                <p class="text-xl font-bold">Total : <span class="text-primary">{{ totalAmount|number_format(2, ',', ' ') }} €</span></p>
+                <form method="post" action="{{ path('app_commande_valider') }}">
+                    <button class="bg-primary hover:bg-primary/90 text-white px-5 py-3 rounded-lg font-bold uppercase text-sm">Valider la commande</button>
+                </form>
+            </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

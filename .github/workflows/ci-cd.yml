@@ -2,9 +2,9 @@ name: ci-cd
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: ['**']
   pull_request:
-    branches: [main, master, develop]
+    branches: ['**']
 
 permissions:
   contents: read

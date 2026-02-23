@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+.gitlab-ci.yml
+
+# Documentation
+README.md
+README copy.md
+
+# Tests
+tests/
+phpunit.xml.dist
+.phpunit.cache
+
+# Var
+var/cache/*
+var/log/*
+!var/cache/.gitkeep
+!var/log/.gitkeep
+
+# Vendor (sera copié depuis composer)
+<<<<<<< HEAD
+vendor/
+=======
+# vendor/
+>>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
+
+# Configuration locale
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.tar
+*.tar.gz
+
+# Dossiers de backup
+*copy/
+public copy/
+src copy/
+templates copy/
+config copy/
+
+# Node modules si présents
+node_modules/
+
+# Composer
+composer.phar
+composer copy.json

@@ -75,6 +75,12 @@ class SecurityController extends AbstractController
             $user->setFirstName($userInfo['given_name'] ?? '');
             $user->setLastName($userInfo['family_name'] ?? '');
 
+            $roles = $user->getRoles();
+            if ($this->isAdminEmail($user->getEmail() ?? '')) {
+                $roles[] = 'ROLE_ADMIN';
+            }
+            $user->setRoles(array_values(array_unique($roles)));
+
             $entityManager->persist($user);
             $entityManager->flush();
 
@@ -83,7 +89,7 @@ class SecurityController extends AbstractController
             $session->set('user_email', $user->getEmail());
             $session->set('user_name', $user->getFullName());
             $session->set('is_authenticated', true);
-            $session->set('is_admin', $this->isAdminEmail($user->getEmail() ?? ''));
+            $session->set('is_admin', in_array('ROLE_ADMIN', $user->getRoles(), true));
 
             // Envoyer la notification via RabbitMQ
             $bus->dispatch(new UserLoginNotification($user->getFullName()));

@@ -165,19 +165,6 @@ Cette section couvre le cycle de vie d'une commande e-commerce :
 > Recommandation technique : centraliser les transitions de statuts dans un service dédié
 > (workflow/state machine) pour garantir la cohérence métier et la traçabilité.
 
-
-## 🔄 CI/CD
-
-Le pipeline GitHub Actions (`.github/workflows/ci-cd.yml`) exécute :
-
-- **Install** : installation des dépendances Composer
-- **Tests** : unitaires, fonctionnels, e2e
-- **SAST** : lint PHP, `composer audit`, Trivy filesystem
-- **DAST** : scan baseline OWASP ZAP contre l'application démarrée en local CI
-- **Qualité** : audit SonarCloud (si `SONAR_TOKEN` est configuré)
-- **Release** : build/push image Docker GHCR
-- **Deploy** : staging (branche `develop`) et production (`main`/`master`)
-
 ## 📚 Documentation
 
 - [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) - Configuration détaillée de Keycloak

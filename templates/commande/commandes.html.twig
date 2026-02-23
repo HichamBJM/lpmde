@@ -4,7 +4,7 @@
 
 {% block body %}
 <main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-12">
-    <h1 class="text-3xl font-bold uppercase tracking-tight mb-2">Commandes</h1>
+    <h1 class="text-3xl font-bold uppercase tracking-tight mb-2">Mes commandes</h1>
     <p class="text-slate-400 mb-8">Suivez les statuts et l'orchestration d'expédition.</p>
 
     {% if orders is empty %}
@@ -34,14 +34,18 @@
                         </ul>
                     </div>
 
-                    <div class="flex flex-wrap gap-3 mb-4">
-                        <form method="post" action="{{ path('app_commande_expedier', {number: order.number}) }}">
-                            <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-xs uppercase tracking-wider">Marquer expédiée</button>
-                        </form>
-                        <form method="post" action="{{ path('app_commande_livrer', {number: order.number}) }}">
-                            <button class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded text-xs uppercase tracking-wider">Marquer livrée</button>
-                        </form>
-                    </div>
+                    {% if isAdmin %}
+                        <div class="flex flex-wrap gap-3 mb-4">
+                            <form method="post" action="{{ path('app_commande_expedier', {number: order.number}) }}">
+                                <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-xs uppercase tracking-wider">Marquer expédiée</button>
+                            </form>
+                            <form method="post" action="{{ path('app_commande_livrer', {number: order.number}) }}">
+                                <button class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded text-xs uppercase tracking-wider">Marquer livrée</button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <p class="text-xs text-slate-500 mb-4">Suivi en lecture seule. Les changements de statut sont réservés aux administrateurs.</p>
+                    {% endif %}
 
                     <div>
                         <p class="text-sm uppercase tracking-wider text-slate-500 mb-2">Historique des statuts</p>

@@ -82,16 +82,29 @@ final class CommandeController extends AbstractController
     }
 
     #[Route('/commandes', name: 'app_commandes', methods: ['GET'])]
-    public function commandes(OrderService $orderService): Response
+    public function commandes(Request $request, OrderService $orderService): Response
     {
+        if (!$request->getSession()->get('is_authenticated')) {
+            $this->addFlash('warning', 'Vous devez être connecté pour consulter vos commandes.');
+
+            return $this->redirectToRoute('app_login_keycloak');
+        }
+
         return $this->render('commande/commandes.html.twig', [
             'orders' => $orderService->all(),
+            'isAdmin' => (bool) $request->getSession()->get('is_admin', false),
         ]);
     }
 
     #[Route('/commandes/{number}/expedier', name: 'app_commande_expedier', methods: ['POST'])]
-    public function expedier(string $number, OrderService $orderService): RedirectResponse
+    public function expedier(Request $request, string $number, OrderService $orderService): RedirectResponse
     {
+        if (!(bool) $request->getSession()->get('is_admin', false)) {
+            $this->addFlash('error', 'Action réservée aux administrateurs.');
+
+            return $this->redirectToRoute('app_commandes');
+        }
+
         try {
             $orderService->transition($number, OrderStatus::SHIPPED, 'Colis remis au transporteur');
             $this->addFlash('success', sprintf('Commande %s expédiée.', $number));
@@ -103,8 +116,14 @@ final class CommandeController extends AbstractController
     }
 
     #[Route('/commandes/{number}/livrer', name: 'app_commande_livrer', methods: ['POST'])]
-    public function livrer(string $number, OrderService $orderService): RedirectResponse
+    public function livrer(Request $request, string $number, OrderService $orderService): RedirectResponse
     {
+        if (!(bool) $request->getSession()->get('is_admin', false)) {
+            $this->addFlash('error', 'Action réservée aux administrateurs.');
+
+            return $this->redirectToRoute('app_commandes');
+        }
+
         try {
             $orderService->transition($number, OrderStatus::DELIVERED, 'Commande livrée au client');
             $this->addFlash('success', sprintf('Commande %s livrée.', $number));

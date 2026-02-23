@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Commandes{% endblock %}
+
+{% block body %}
+<main class="max-w-[1200px] mx-auto px-4 lg:px-10 py-12">
+    <h1 class="text-3xl font-bold uppercase tracking-tight mb-2">Commandes</h1>
+    <p class="text-slate-400 mb-8">Suivez les statuts et l'orchestration d'expédition.</p>
+
+    {% if orders is empty %}
+        <div class="bg-white/5 border border-white/10 rounded-xl p-6 text-slate-400">Aucune commande pour le moment.</div>
+    {% else %}
+        <div class="space-y-6">
+            {% for order in orders %}
+                <article class="bg-white/5 border border-white/10 rounded-xl p-6">
+                    <div class="flex flex-wrap justify-between gap-4 mb-4">
+                        <div>
+                            <h2 class="text-xl font-semibold text-white">{{ order.number }}</h2>
+                            <p class="text-slate-400 text-sm">Créée le {{ order.createdAt|date('d/m/Y H:i') }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-slate-400">Statut</p>
+                            <p class="font-bold text-primary">{{ order.status }}</p>
+                            <p class="font-semibold mt-1">{{ order.totalAmount|number_format(2, ',', ' ') }} €</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="text-sm uppercase tracking-wider text-slate-500 mb-2">Lignes</p>
+                        <ul class="space-y-1 text-sm text-slate-300">
+                            {% for item in order.items %}
+                                <li>{{ item.quantity }} × {{ item.name }} — {{ item.subtotal|number_format(2, ',', ' ') }} €</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 mb-4">
+                        <form method="post" action="{{ path('app_commande_expedier', {number: order.number}) }}">
+                            <button class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded text-xs uppercase tracking-wider">Marquer expédiée</button>
+                        </form>
+                        <form method="post" action="{{ path('app_commande_livrer', {number: order.number}) }}">
+                            <button class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded text-xs uppercase tracking-wider">Marquer livrée</button>
+                        </form>
+                    </div>
+
+                    <div>
+                        <p class="text-sm uppercase tracking-wider text-slate-500 mb-2">Historique des statuts</p>
+                        <ul class="space-y-1 text-xs text-slate-400">
+                            {% for event in order.history|reverse %}
+                                <li>{{ event.at|date('d/m/Y H:i:s') }} — <span class="text-primary">{{ event.status }}</span> — {{ event.label }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% endif %}
+</main>
+{% endblock %}

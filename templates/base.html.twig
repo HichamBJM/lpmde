@@ -52,6 +52,15 @@
     </head>
     <body class="bg-background-dark text-slate-900 dark:text-white min-h-screen">
         {% include 'partials/_header.html.twig' %}
+
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="max-w-[1200px] mx-auto px-4 lg:px-10 mt-4">
+                    <div class="rounded-lg px-4 py-3 text-sm {{ label == 'error' ? 'bg-red-900/60 text-red-100 border border-red-500/40' : 'bg-emerald-900/60 text-emerald-100 border border-emerald-500/40' }}">{{ message }}</div>
+                </div>
+            {% endfor %}
+        {% endfor %}
+
         {% block body %}{% endblock %}
 
         {% block javascripts %}

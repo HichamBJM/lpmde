@@ -17,7 +17,7 @@ class CommandeFlowTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    public function testCartAddAndCreateOrderFlow(): void
+    public function testCartAddAndCheckoutRequiresAuthentication(): void
     {
         $client = static::createClient();
 
@@ -28,10 +28,6 @@ class CommandeFlowTest extends WebTestCase
         self::assertSelectorTextContains('main h1', 'Panier');
 
         $client->request('POST', '/commandes/valider');
-        self::assertResponseRedirects('/commandes');
-
-        $client->followRedirect();
-        self::assertSelectorExists('article');
-        self::assertPageTitleContains('Commandes');
+        self::assertResponseRedirects('/login/keycloak');
     }
 }

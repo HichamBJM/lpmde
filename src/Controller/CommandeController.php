@@ -54,8 +54,14 @@ final class CommandeController extends AbstractController
     }
 
     #[Route('/commandes/valider', name: 'app_commande_valider', methods: ['POST'])]
-    public function valider(CartService $cartService, OrderService $orderService, MessageBusInterface $bus): RedirectResponse
+    public function valider(Request $request, CartService $cartService, OrderService $orderService, MessageBusInterface $bus): RedirectResponse
     {
+        if (!$request->getSession()->get('is_authenticated')) {
+            $this->addFlash('warning', 'Vous devez être connecté pour passer une commande.');
+
+            return $this->redirectToRoute('app_login_keycloak');
+        }
+
         try {
             $order = $orderService->createFromCart($cartService->getDetailedItems(), $cartService->totalAmount());
             $order = $orderService->transition((string) $order['number'], OrderStatus::PENDING_PAYMENT, 'Commande créée, attente de paiement');

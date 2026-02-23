@@ -75,6 +75,12 @@ class SecurityController extends AbstractController
             $user->setFirstName($userInfo['given_name'] ?? '');
             $user->setLastName($userInfo['family_name'] ?? '');
 
+            $roles = $user->getRoles();
+            if ($this->isAdminEmail($user->getEmail() ?? '')) {
+                $roles[] = 'ROLE_ADMIN';
+            }
+            $user->setRoles(array_values(array_unique($roles)));
+
             $entityManager->persist($user);
             $entityManager->flush();
 
@@ -83,6 +89,7 @@ class SecurityController extends AbstractController
             $session->set('user_email', $user->getEmail());
             $session->set('user_name', $user->getFullName());
             $session->set('is_authenticated', true);
+            $session->set('is_admin', in_array('ROLE_ADMIN', $user->getRoles(), true));
 
             // Envoyer la notification via RabbitMQ
             $bus->dispatch(new UserLoginNotification($user->getFullName()));
@@ -129,5 +136,18 @@ class SecurityController extends AbstractController
             'user_name' => $session->get('user_name'),
             'user_email' => $session->get('user_email'),
         ]);
+    }
+
+
+    private function isAdminEmail(string $email): bool
+    {
+        $configured = $_ENV['ADMIN_EMAILS'] ?? $_SERVER['ADMIN_EMAILS'] ?? '';
+        if ('' === trim($configured)) {
+            return false;
+        }
+
+        $admins = array_map(static fn (string $value): string => strtolower(trim($value)), explode(',', $configured));
+
+        return in_array(strtolower($email), $admins, true);
     }
 }

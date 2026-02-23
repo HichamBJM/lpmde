@@ -1,22 +1,22 @@
-name: CI/CD Pipeline
+name: ci-cd
 
 on:
   push:
-    branches:
-      - main
-      - master
-      - develop
+    branches: ['**']
   pull_request:
-    branches:
-      - main
-      - master
-      - develop
+    branches: ['**']
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
 
 env:
-  DOCKER_DRIVER: overlay2
+  PHP_VERSION: '8.2'
+  DB_USER: 'ci_user'
+  DB_PASSWORD: 'ci_password'
 
 jobs:
-  # Stage Install
   install:
     runs-on: ubuntu-latest
     steps:
@@ -26,29 +26,22 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: pdo, pdo_mysql
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
           tools: composer
 
-      - name: Cache Composer dependencies
-        uses: actions/cache@v3
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
         with:
-          path: vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          path: |
+            vendor
+            ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
 
-<<<<<<< HEAD
-      - name: Create .env file for CI
-        run: |
-          echo "APP_ENV=test" > .env
-          echo "APP_SECRET=test_secret_for_ci_only" >> .env
-          echo "DATABASE_URL=postgresql://test:test@localhost:5432/test?serverVersion=16" >> .env
-
-=======
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
       - name: Install dependencies
-        run: composer install --prefer-dist --no-ansi --no-interaction --no-progress --optimize-autoloader
+        run: composer install --prefer-dist --no-interaction --no-progress --no-scripts
 
       - name: Upload vendor artifact
         uses: actions/upload-artifact@v4
@@ -57,65 +50,6 @@ jobs:
           path: vendor/
           retention-days: 1
 
-  # Stage Test
-  sast-npm-audit:
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate || true
-        continue-on-error: true
-
-  sonar-audit:
-    runs-on: ubuntu-latest
-    needs: unit-test
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download test artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: test-results
-          path: var/log/
-        continue-on-error: true
-
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ github.event.repository.name }}
-            -Dsonar.sources=src
-            -Dsonar.php.coverage.reportPaths=var/log/cobertura.xml
-        continue-on-error: true
-
-  trivy-fs-audit:
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'HIGH,CRITICAL'
-          exit-code: '0'
-        continue-on-error: true
-
   unit-test:
     runs-on: ubuntu-latest
     needs: install
@@ -123,15 +57,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-<<<<<<< HEAD
-      - name: Create .env file for tests
-        run: |
-          echo "APP_ENV=test" > .env
-          echo "APP_SECRET=test_secret_for_ci_only" >> .env
-          echo "DATABASE_URL=postgresql://test:test@localhost:5432/test?serverVersion=16" >> .env
-
-=======
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
       - name: Download vendor artifact
         uses: actions/download-artifact@v4
         with:
@@ -141,25 +66,39 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: pdo, pdo_mysql, pcov
-          coverage: pcov
-
-      - name: Create log directory
-        run: mkdir -p var/log
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
 
       - name: Run unit tests
-        run: php bin/phpunit --coverage-cobertura=var/log/cobertura.xml --log-junit=var/log/junit.xml
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
+        run: php bin/phpunit --testsuite=unit --no-coverage
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
+  functional-test:
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v4
         with:
-          name: test-results
-          path: |
-            var/log/junit.xml
-            var/log/cobertura.xml
-        continue-on-error: true
+          name: vendor
+          path: vendor/
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
+
+      - name: Run functional tests
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
+        run: php bin/phpunit --testsuite=functional --no-coverage
 
   e2e-test:
     runs-on: ubuntu-latest
@@ -168,15 +107,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-<<<<<<< HEAD
-      - name: Create .env file for tests
-        run: |
-          echo "APP_ENV=test" > .env
-          echo "APP_SECRET=test_secret_for_ci_only" >> .env
-          echo "DATABASE_URL=postgresql://test:test@localhost:5432/test?serverVersion=16" >> .env
-
-=======
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
       - name: Download vendor artifact
         uses: actions/download-artifact@v4
         with:
@@ -186,154 +116,164 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: pdo, pdo_mysql
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
 
-      - name: Run E2E tests
-        run: |
-          echo "Running E2E tests"
-          php bin/phpunit --testsuite=e2e --no-coverage
-        continue-on-error: false
+      - name: Run e2e tests
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
+        run: php bin/phpunit --testsuite=e2e --no-coverage
 
-  # Stage Release
-  build-image:
+  sast-php-lint:
     runs-on: ubuntu-latest
-    needs: [unit-test, e2e-test]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop'
-    permissions:
-      contents: read
-      packages: write
+    needs: install
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          fetch-depth: 0
+          php-version: ${{ env.PHP_VERSION }}
+
+      - name: PHP syntax lint
+        run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  sast-composer-audit:
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer
+
+      - name: Composer audit
+        run: composer audit || true
+
+  trivy-fs-audit:
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trivy filesystem audit
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: '0'
+
+  dast-zap-baseline:
+    runs-on: ubuntu-latest
+    needs: [install, functional-test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vendor
+          path: vendor/
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+
+      - name: Start application
+        env:
+          APP_ENV: test
+          APP_DEBUG: '0'
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
+        run: |
+          php -S 127.0.0.1:8000 -t public > /tmp/php-server.log 2>&1 &
+          sleep 3
+          curl -I http://127.0.0.1:8000
+
+      - name: OWASP ZAP baseline
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://127.0.0.1:8000
+          fail_action: false
+          allow_issue_writing: false
+          cmd_options: -a
+
+  sonar-audit:
+    runs-on: ubuntu-latest
+    needs: [unit-test, functional-test, e2e-test]
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: SonarCloud scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarcloud-github-action@v2.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+
+      - name: SonarCloud skipped (missing SONAR_TOKEN)
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: echo "SONAR_TOKEN is not configured, skipping sonar-audit job."
+
+  build-image:
+    runs-on: ubuntu-latest
+    needs: [unit-test, functional-test, e2e-test, sast-php-lint, sast-composer-audit, trivy-fs-audit]
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest
+      - name: Compute lowercase image name
+        id: image
+        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      - name: Build and push image
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.image.outputs.repo }}:${{ github.sha }}
 
-  # Stage Staging
   deploy-staging:
     runs-on: ubuntu-latest
-    needs: build-image
-<<<<<<< HEAD
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment:
-      name: staging
-      url: https://localhost
-=======
+    needs: [build-image, dast-zap-baseline]
     if: github.ref == 'refs/heads/develop'
     environment:
       name: staging
       url: https://staging.example.com
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
     steps:
-      - name: Deploy to staging
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.STAGING_SERVER }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd ${{ secrets.STAGING_PATH }}
-            docker pull ghcr.io/${{ github.repository }}:latest
-            docker-compose down
-            docker-compose up -d
+      - name: Deploy to staging (placeholder)
+        run: echo "Deploy staging with Helm/SSH/Kubectl here"
 
-  # Stage Production
   deploy-production:
     runs-on: ubuntu-latest
-    needs: build-image
-<<<<<<< HEAD
-    if: false  # Désactivé pour cluster local - déployer manuellement
-    environment:
-      name: production
-      url: https://lpmde.abrokenwebsite.com
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-
-      - name: Configure kubectl
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-
-      - name: Create namespace if not exists
-        run: |
-          kubectl create namespace lpmde-production --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Deploy PostgreSQL
-        run: |
-          kubectl apply -f k8s/postgres-pvc.yaml
-          kubectl apply -f k8s/postgres-deployment.yaml
-          kubectl apply -f k8s/postgres-service.yaml
-          echo "Waiting for PostgreSQL to be ready..."
-          kubectl wait --for=condition=ready pod -l app=postgres -n lpmde-production --timeout=180s || true
-
-      - name: Deploy application
-        run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/ingress.yaml
-          kubectl set image deployment/lpmde-app lpmde-app=ghcr.io/${{ github.repository }}:latest -n lpmde-production
-          kubectl rollout status deployment/lpmde-app -n lpmde-production --timeout=300s
-          
-      - name: Run database migrations
-        run: |
-          kubectl delete job lpmde-migrations -n lpmde-production --ignore-not-found=true
-          kubectl apply -f k8s/migration-job.yaml
-          kubectl wait --for=condition=complete job/lpmde-migrations -n lpmde-production --timeout=300s
-          kubectl logs job/lpmde-migrations -n lpmde-production
-          
-      - name: Show deployment status
-        run: |
-          kubectl get all -n lpmde-production
-=======
+    needs: [build-image, sonar-audit]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     environment:
       name: production
       url: https://production.example.com
     steps:
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.PRODUCTION_SERVER }}
-          username: ${{ secrets.PRODUCTION_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd ${{ secrets.PRODUCTION_PATH }}
-            docker pull ghcr.io/${{ github.repository }}:latest
-            docker-compose down
-            docker-compose up -d
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
+      - name: Deploy to production (placeholder)
+        run: echo "Deploy production with Helm/ArgoCD/Kubectl here"

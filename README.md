@@ -133,6 +133,51 @@ templates/
 - `/logout` - Déconnexion
 - `/test-rabbit` - Test RabbitMQ (50 messages)
 
+## 🛒 Partie Commandes
+
+Cette section couvre le cycle de vie d'une commande e-commerce :
+
+### 1) Panier
+- Ajout/retrait de produits
+- Mise à jour des quantités
+- Calcul du total et validation du panier
+
+### 2) Commande
+- Transformation du panier en commande
+- Génération d'un identifiant unique de commande
+- Persistance des lignes de commande et des informations client
+
+### 3) Statuts de commande
+- `BROUILLON` : panier en préparation
+- `EN_ATTENTE_PAIEMENT` : commande créée, paiement non confirmé
+- `PAYEE` : paiement validé
+- `EN_PREPARATION` : préparation logistique en cours
+- `EXPEDIEE` : colis remis au transporteur
+- `LIVREE` : commande livrée
+- `ANNULEE` : commande annulée
+
+### 4) Orchestration d'expédition
+- Déclenchement asynchrone de l'expédition après validation de paiement
+- Suivi des événements via messages (ex: RabbitMQ / Messenger)
+- Mise à jour automatique du statut selon les retours transporteur
+- Notification utilisateur à chaque changement d'état clé
+
+> Recommandation technique : centraliser les transitions de statuts dans un service dédié
+> (workflow/state machine) pour garantir la cohérence métier et la traçabilité.
+
+
+## 🔄 CI/CD
+
+Le pipeline GitHub Actions (`.github/workflows/ci-cd.yml`) exécute :
+
+- **Install** : installation des dépendances Composer
+- **Tests** : unitaires, fonctionnels, e2e
+- **SAST** : lint PHP, `composer audit`, Trivy filesystem
+- **DAST** : scan baseline OWASP ZAP contre l'application démarrée en local CI
+- **Qualité** : audit SonarCloud (si `SONAR_TOKEN` est configuré)
+- **Release** : build/push image Docker GHCR
+- **Deploy** : staging (branche `develop`) et production (`main`/`master`)
+
 ## 📚 Documentation
 
 - [KEYCLOAK_SETUP.md](KEYCLOAK_SETUP.md) - Configuration détaillée de Keycloak

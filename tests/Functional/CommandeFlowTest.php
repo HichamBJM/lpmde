@@ -25,7 +25,7 @@ class CommandeFlowTest extends WebTestCase
         self::assertResponseRedirects('/panier');
 
         $client->followRedirect();
-        self::assertSelectorTextContains('h1', 'Panier');
+        self::assertSelectorTextContains('main h1', 'Panier');
 
         $client->request('POST', '/commandes/valider');
         self::assertResponseRedirects('/commandes');

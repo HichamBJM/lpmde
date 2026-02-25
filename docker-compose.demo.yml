@@ -5,8 +5,9 @@ services:
     build: .
     container_name: lpmde-app
     environment:
-      APP_ENV: dev
+      APP_ENV: prod
       APP_SECRET: demo_secret_change_me
+      APP_DEBUG: 0
       DATABASE_URL: postgresql://lpmde:lpmde@app-db:5432/lpmde?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: amqp://guest:guest@rabbitmq:5672/%2f/messages
       KEYCLOAK_URL: http://keycloak:8080
@@ -29,8 +30,9 @@ services:
     container_name: lpmde-worker
     command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "-vv"]
     environment:
-      APP_ENV: dev
+      APP_ENV: prod
       APP_SECRET: demo_secret_change_me
+      APP_DEBUG: 0
       DATABASE_URL: postgresql://lpmde:lpmde@app-db:5432/lpmde?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: amqp://guest:guest@rabbitmq:5672/%2f/messages
     depends_on:

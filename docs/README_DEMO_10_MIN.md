@@ -47,3 +47,12 @@ Vous pouvez simplement relancer:
 Si vous voyez l’erreur `subject name is expected` ou `Can't open "/certs/localhost.key"`, utilisez la dernière version du script (il gère désormais `MSYS_NO_PATHCONV=1`).
 
 
+
+
+Si vous voyez `Attempted to load class "DebugBundle"`, cela signifie que le conteneur tourne en `APP_ENV=dev` alors que l’image a été buildée sans dépendances dev.
+Relancez en reconstruisant: 
+```bash
+./scripts/demo_down.sh
+./scripts/demo_up.sh
+```
+

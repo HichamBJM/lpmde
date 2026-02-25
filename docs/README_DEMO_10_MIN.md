@@ -43,3 +43,7 @@ Vous pouvez simplement relancer:
 ./scripts/demo_up.sh
 ```
 
+
+Si vous voyez l’erreur `subject name is expected` ou `Can't open "/certs/localhost.key"`, utilisez la dernière version du script (il gère désormais `MSYS_NO_PATHCONV=1`).
+
+

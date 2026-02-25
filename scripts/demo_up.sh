@@ -37,7 +37,8 @@ generate_cert_with_host_openssl() {
     unset OPENSSL_CONF || true
   fi
 
-  openssl req -x509 -newkey rsa:2048 -sha256 -days 365 -nodes \
+  # Sous Git Bash, empêcher la conversion MSYS de '/CN=localhost'
+  MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -sha256 -days 365 -nodes \
     -keyout infra/nginx/certs/localhost.key \
     -out infra/nginx/certs/localhost.crt \
     -subj '/CN=localhost'
@@ -45,7 +46,18 @@ generate_cert_with_host_openssl() {
 
 generate_cert_with_docker() {
   echo "[demo_up] Fallback: génération certificat via conteneur OpenSSL..."
-  docker run --rm -v "$(pwd)/infra/nginx/certs:/certs" alpine:3.20 sh -lc \
+
+  local cert_dir
+  if cert_dir="$(pwd -W 2>/dev/null)"; then
+    cert_dir="${cert_dir//\\//}/infra/nginx/certs"
+  else
+    cert_dir="$(pwd)/infra/nginx/certs"
+  fi
+
+  mkdir -p infra/nginx/certs
+
+  # Sous Git Bash, empêcher la conversion des chemins du -v et du -subj
+  MSYS_NO_PATHCONV=1 docker run --rm -v "${cert_dir}:/certs" alpine:3.20 sh -lc \
     "apk add --no-cache openssl >/dev/null && openssl req -x509 -newkey rsa:2048 -sha256 -days 365 -nodes -keyout /certs/localhost.key -out /certs/localhost.crt -subj '/CN=localhost'"
 }
 

@@ -9,54 +9,33 @@ services:
       - "${APP_PORT:-8080}:80"
     environment:
       APP_ENV: ${APP_ENV:-prod}
-      APP_SECRET: ${APP_SECRET}
-      DATABASE_URL: ${DATABASE_URL}
+      APP_SECRET: ${APP_SECRET:-ChangeMeInProd}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://lpmde:lpmde@db:5432/lpmde?serverVersion=16&charset=utf8}
     volumes:
       - ./var/log:/var/www/html/var/log
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - lpmde-network
-    depends_on:
-      - db
 
   db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     container_name: lpmde-db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-lpmde}
-<<<<<<< HEAD
-      MYSQL_USER: ${MYSQL_USER:-postgres}
-=======
-      MYSQL_USER: ${MYSQL_USER:-lpmde}
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-lpmde}
+      POSTGRES_DB: ${POSTGRES_DB:-lpmde}
+      POSTGRES_USER: ${POSTGRES_USER:-lpmde}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lpmde}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lpmde} -d ${POSTGRES_DB:-lpmde}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
-      - db-data:/var/lib/mysql
+      - db-data:/var/lib/postgresql/data
     networks:
       - lpmde-network
-<<<<<<< HEAD
-    # en prod, évite d'exposer :
-    # ports:
-    #   - "${DB_PORT:-3306}:3306"
-
-###> doctrine/doctrine-bundle ###
-  database:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app}
-      # You should definitely change the password in production
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
-      POSTGRES_USER: ${POSTGRES_USER:-app}
-    volumes:
-      - database_data:/var/lib/postgresql/data:rw
-      # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
-      # - ./docker/db/data:/var/lib/postgresql/data:rw
-###< doctrine/doctrine-bundle ###
-=======
-    ports:
-      - "${DB_PORT:-3306}:3306"
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4
 
 networks:
   lpmde-network:
@@ -64,9 +43,3 @@ networks:
 
 volumes:
   db-data:
-<<<<<<< HEAD
-###> doctrine/doctrine-bundle ###
-  database_data:
-###< doctrine/doctrine-bundle ###
-=======
->>>>>>> 2a2a3044f9adead3da88b05626bcae0a87f58ad4

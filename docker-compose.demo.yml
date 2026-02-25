@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: lpmde-app
+    environment:
+      APP_ENV: prod
+      APP_SECRET: demo_secret_change_me
+      APP_DEBUG: 0
+      DATABASE_URL: postgresql://lpmde:lpmde@app-db:5432/lpmde?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: amqp://guest:guest@rabbitmq:5672/%2f/messages
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: lpmde
+      KEYCLOAK_CLIENT_ID: symfony-app
+      KEYCLOAK_CLIENT_SECRET: symfony-app-secret
+      KEYCLOAK_REDIRECT_URI: https://localhost:8443/login/keycloak/callback
+      ADMIN_EMAILS: admin@lpmde.local
+    depends_on:
+      app-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks: [demo]
+
+  worker:
+    build: .
+    container_name: lpmde-worker
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "-vv"]
+    environment:
+      APP_ENV: prod
+      APP_SECRET: demo_secret_change_me
+      APP_DEBUG: 0
+      DATABASE_URL: postgresql://lpmde:lpmde@app-db:5432/lpmde?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: amqp://guest:guest@rabbitmq:5672/%2f/messages
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks: [demo]
+
+  app-db:
+    image: postgres:16-alpine
+    container_name: lpmde-app-db
+    environment:
+      POSTGRES_DB: lpmde
+      POSTGRES_USER: lpmde
+      POSTGRES_PASSWORD: lpmde
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lpmde -d lpmde"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+    volumes:
+      - app_db_data:/var/lib/postgresql/data
+    networks: [demo]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: lpmde-rabbitmq
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [demo]
+
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: lpmde-keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    networks: [demo]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: lpmde-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import
+    ports:
+      - "8081:8080"
+    networks: [demo]
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    container_name: lpmde-nginx
+    depends_on:
+      - app
+    ports:
+      - "8443:443"
+      - "8088:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+    networks: [demo]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: lpmde-prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks: [demo]
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    container_name: lpmde-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks: [demo]
+
+networks:
+  demo:
+    driver: bridge
+
+volumes:
+  app_db_data:
+  keycloak_db_data:

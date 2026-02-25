@@ -31,3 +31,15 @@
 ```bash
 ./scripts/demo_down.sh
 ```
+
+
+## Dépannage Windows (Git Bash)
+Si `demo_up.sh` échoue sur `openssl.cnf`, le script tente maintenant:
+1) détection automatique des chemins OpenSSL Git Bash (`/mingw64/ssl/openssl.cnf`, etc.)
+2) fallback via conteneur Docker OpenSSL.
+
+Vous pouvez simplement relancer:
+```bash
+./scripts/demo_up.sh
+```
+

@@ -56,3 +56,10 @@ Relancez en reconstruisant:
 ./scripts/demo_up.sh
 ```
 
+
+Si l’erreur persiste, forcez une reconstruction propre des conteneurs/images:
+```bash
+./scripts/demo_down.sh
+docker compose -f docker-compose.demo.yml build --no-cache
+./scripts/demo_up.sh
+```

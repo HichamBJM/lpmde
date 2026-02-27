@@ -27,7 +27,7 @@ final class CommandeController extends AbstractController
         ]);
     }
 
-    #[Route('/panier/ajouter/{sku}', name: 'app_panier_ajouter', methods: ['POST'])]
+    #[Route('/panier/ajouter/{sku}', name: 'app_panier_ajouter', requirements: ['sku' => '[a-z0-9\-]+'], methods: ['POST'])]
     public function ajouter(string $sku, CartService $cartService, Request $request): RedirectResponse
     {
         $cartService->add($sku);
@@ -36,16 +36,16 @@ final class CommandeController extends AbstractController
         return $this->redirect($request->headers->get('referer') ?: $this->generateUrl('app_panier'));
     }
 
-    #[Route('/panier/mettre-a-jour/{sku}', name: 'app_panier_maj', methods: ['POST'])]
+    #[Route('/panier/mettre-a-jour/{sku}', name: 'app_panier_maj', requirements: ['sku' => '[a-z0-9\-]+'], methods: ['POST'])]
     public function mettreAJour(string $sku, Request $request, CartService $cartService): RedirectResponse
     {
-        $quantity = max(0, (int) $request->request->get('quantity', 1));
+        $quantity = max(0, min(50, (int) $request->request->get('quantity', 1)));
         $cartService->updateQuantity($sku, $quantity);
 
         return $this->redirectToRoute('app_panier');
     }
 
-    #[Route('/panier/supprimer/{sku}', name: 'app_panier_supprimer', methods: ['POST'])]
+    #[Route('/panier/supprimer/{sku}', name: 'app_panier_supprimer', requirements: ['sku' => '[a-z0-9\-]+'], methods: ['POST'])]
     public function supprimer(string $sku, CartService $cartService): RedirectResponse
     {
         $cartService->remove($sku);
@@ -74,7 +74,11 @@ final class CommandeController extends AbstractController
             $order = $orderService->transition((string) $order['number'], OrderStatus::PREPARING, 'Préparation logistique lancée');
 
             if (null !== $order) {
-                $bus->dispatch(new ShippingRequested((string) $order['number']));
+                try {
+                    $bus->dispatch(new ShippingRequested((string) $order['number']));
+                } catch (\Throwable $transportException) {
+                    $this->addFlash('warning', 'Commande créée mais envoi asynchrone indisponible (transport/message bus).');
+                }
             }
 
             $cartService->clear();

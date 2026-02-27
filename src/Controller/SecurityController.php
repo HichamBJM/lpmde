@@ -24,6 +24,12 @@ class SecurityController extends AbstractController
     #[Route('/login/keycloak/redirect', name: 'app_login_keycloak_redirect')]
     public function redirectToKeycloak(KeycloakService $keycloakService, Request $request): Response
     {
+        if (!$this->checkLoginRateLimit($request)) {
+            $this->addFlash('error', 'Trop de tentatives de connexion, réessayez dans 60 secondes.');
+
+            return $this->redirectToRoute('app_login_keycloak');
+        }
+
         // Générer un state pour la sécurité CSRF
         $state = bin2hex(random_bytes(32));
         $session = $request->getSession();
@@ -57,19 +63,13 @@ class SecurityController extends AbstractController
             // Échanger le code contre un access token
             $tokenData = $keycloakService->getAccessToken($code);
             $accessToken = $tokenData['access_token'];
+            $idToken = $tokenData['id_token'] ?? null;
 
             // Récupérer les informations de l'utilisateur
-            $userInfo = $keycloakService->getUserInfo($accessToken);
+            $userInfo = $keycloakService->getUserInfo($accessToken, $idToken);
 
-            // Chercher ou créer l'utilisateur
-            $user = $userRepository->findOneByKeycloakId($userInfo['sub']);
-
-            if (!$user) {
-                $user = new User();
-                $user->setKeycloakId($userInfo['sub']);
-            }
-
-            // Mettre à jour les informations de l'utilisateur
+            $user = new User();
+            $user->setKeycloakId($userInfo['sub']);
             $user->setEmail($userInfo['email'] ?? 'no-email@example.com');
             $user->setUsername($userInfo['preferred_username'] ?? $userInfo['email']);
             $user->setFirstName($userInfo['given_name'] ?? '');
@@ -81,8 +81,24 @@ class SecurityController extends AbstractController
             }
             $user->setRoles(array_values(array_unique($roles)));
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            try {
+                // Chercher ou créer l'utilisateur persistant
+                $persistedUser = $userRepository->findOneByKeycloakId($userInfo['sub']);
+                if ($persistedUser) {
+                    $user = $persistedUser;
+                    $user->setEmail($userInfo['email'] ?? 'no-email@example.com');
+                    $user->setUsername($userInfo['preferred_username'] ?? $userInfo['email']);
+                    $user->setFirstName($userInfo['given_name'] ?? '');
+                    $user->setLastName($userInfo['family_name'] ?? '');
+                    $user->setRoles(array_values(array_unique($roles)));
+                }
+
+                $entityManager->persist($user);
+                $entityManager->flush();
+            } catch (\Throwable $dbException) {
+                // Démo: garder la session active même si la DB n'est pas joignable
+                $this->addFlash('warning', 'Connexion Keycloak réussie, mais base de données indisponible: mode session temporaire.');
+            }
 
             // Stocker l'utilisateur en session (authentification manuelle)
             $session->set('user_id', $user->getId());
@@ -91,8 +107,12 @@ class SecurityController extends AbstractController
             $session->set('is_authenticated', true);
             $session->set('is_admin', in_array('ROLE_ADMIN', $user->getRoles(), true));
 
-            // Envoyer la notification via RabbitMQ
-            $bus->dispatch(new UserLoginNotification($user->getFullName()));
+            try {
+                // Envoyer la notification via RabbitMQ
+                $bus->dispatch(new UserLoginNotification($user->getFullName()));
+            } catch (\Throwable $busException) {
+                $this->addFlash('warning', 'Connexion réussie, mais la notification asynchrone n\'a pas pu être envoyée.');
+            }
 
             // Message de succès
             $this->addFlash('success', sprintf(
@@ -137,6 +157,31 @@ class SecurityController extends AbstractController
             'user_email' => $session->get('user_email'),
         ]);
     }
+
+
+    private function checkLoginRateLimit(Request $request): bool
+    {
+        $session = $request->getSession();
+        $window = (int) $session->get('auth_window', 0);
+        $attempts = (int) $session->get('auth_attempts', 0);
+        $now = time();
+
+        if ($window === 0 || ($now - $window) > 60) {
+            $session->set('auth_window', $now);
+            $session->set('auth_attempts', 1);
+
+            return true;
+        }
+
+        if ($attempts >= 10) {
+            return false;
+        }
+
+        $session->set('auth_attempts', $attempts + 1);
+
+        return true;
+    }
+
 
 
     private function isAdminEmail(string $email): bool

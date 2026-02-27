@@ -58,7 +58,7 @@ class KeycloakService
         return $response->toArray();
     }
 
-    public function getUserInfo(string $accessToken): array
+    public function getUserInfo(string $accessToken, ?string $idToken = null): array
     {
         $response = $this->httpClient->request('GET', $this->getUserInfoUrl(), [
             'headers' => [
@@ -66,7 +66,37 @@ class KeycloakService
             ],
         ]);
 
+        $statusCode = $response->getStatusCode();
+        if ($statusCode === 401 && null !== $idToken && '' !== $idToken) {
+            $fallbackUser = $this->decodeIdToken($idToken);
+            if ([] !== $fallbackUser) {
+                return $fallbackUser;
+            }
+        }
+
         return $response->toArray();
+    }
+
+    private function decodeIdToken(string $idToken): array
+    {
+        $parts = explode('.', $idToken);
+        if (count($parts) < 2) {
+            return [];
+        }
+
+        $payload = strtr($parts[1], '-_', '+/');
+        $padding = strlen($payload) % 4;
+        if ($padding > 0) {
+            $payload .= str_repeat('=', 4 - $padding);
+        }
+
+        $json = base64_decode($payload, true);
+        if (false === $json) {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : [];
     }
 
     private function getTokenUrl(): string

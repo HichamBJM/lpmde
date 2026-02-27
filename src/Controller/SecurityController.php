@@ -63,9 +63,10 @@ class SecurityController extends AbstractController
             // Échanger le code contre un access token
             $tokenData = $keycloakService->getAccessToken($code);
             $accessToken = $tokenData['access_token'];
+            $idToken = $tokenData['id_token'] ?? null;
 
             // Récupérer les informations de l'utilisateur
-            $userInfo = $keycloakService->getUserInfo($accessToken);
+            $userInfo = $keycloakService->getUserInfo($accessToken, $idToken);
 
             // Chercher ou créer l'utilisateur
             $user = $userRepository->findOneByKeycloakId($userInfo['sub']);

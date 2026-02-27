@@ -6,7 +6,7 @@ services:
       APP_ENV: prod
       APP_SECRET: demo_secret_change_me
       APP_DEBUG: 0
-      DATABASE_URL: postgresql://lpmde:lpmde@db:5432/lpmde?serverVersion=16&charset=utf8
+      DATABASE_URL: postgresql://lpmde:lpmde@app-db:5432/lpmde?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: amqp://guest:guest@rabbitmq:5672/%2f/messages
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_PUBLIC_URL: http://localhost:8081
@@ -32,15 +32,12 @@ services:
       APP_ENV: prod
       APP_SECRET: demo_secret_change_me
       APP_DEBUG: 0
-      DATABASE_URL: postgresql://lpmde:lpmde@db:5432/lpmde?serverVersion=16&charset=utf8
+      DATABASE_URL: postgresql://lpmde:lpmde@app-db:5432/lpmde?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: amqp://guest:guest@rabbitmq:5672/%2f/messages
     depends_on:
       rabbitmq:
         condition: service_healthy
-    networks:
-      demo:
-        aliases:
-          - db
+    networks: [demo]
 
   app-db:
     image: postgres:16-alpine
@@ -56,7 +53,10 @@ services:
       retries: 8
     volumes:
       - app_db_data:/var/lib/postgresql/data
-    networks: [demo]
+    networks:
+      demo:
+        aliases:
+          - db
 
   rabbitmq:
     image: rabbitmq:3-management

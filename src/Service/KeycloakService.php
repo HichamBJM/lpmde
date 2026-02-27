@@ -7,6 +7,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class KeycloakService
 {
     private string $keycloakUrl;
+    private string $keycloakPublicUrl;
     private string $realm;
     private string $clientId;
     private string $clientSecret;
@@ -17,6 +18,7 @@ class KeycloakService
     ) {
         // Configuration Keycloak - À adapter selon votre installation
         $this->keycloakUrl = $_ENV['KEYCLOAK_URL'] ?? 'http://localhost:8080';
+        $this->keycloakPublicUrl = $_ENV['KEYCLOAK_PUBLIC_URL'] ?? $this->keycloakUrl;
         $this->realm = $_ENV['KEYCLOAK_REALM'] ?? 'master';
         $this->clientId = $_ENV['KEYCLOAK_CLIENT_ID'] ?? 'symfony-app';
         $this->clientSecret = $_ENV['KEYCLOAK_CLIENT_SECRET'] ?? '';
@@ -35,7 +37,7 @@ class KeycloakService
 
         return sprintf(
             '%s/realms/%s/protocol/openid-connect/auth?%s',
-            $this->keycloakUrl,
+            $this->keycloakPublicUrl,
             $this->realm,
             http_build_query($params)
         );

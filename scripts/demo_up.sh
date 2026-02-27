@@ -69,7 +69,7 @@ if [[ ! -f infra/nginx/certs/localhost.crt || ! -f infra/nginx/certs/localhost.k
 fi
 
 echo "[demo_up] Démarrage de la stack démo..."
-docker compose -f docker-compose.demo.yml up -d --build
+docker compose -f docker-compose.demo.yml up -d --build --force-recreate
 
 echo "[demo_up] Attente health app..."
 for i in {1..30}; do

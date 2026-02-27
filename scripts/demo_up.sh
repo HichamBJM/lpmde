@@ -75,6 +75,8 @@ echo "[demo_up] Attente health app..."
 for i in {1..30}; do
   if curl -ksf https://localhost:8443/health >/dev/null; then
     echo "[demo_up] Application disponible sur https://localhost:8443"
+    echo "[demo_up] Application des migrations Doctrine..."
+    docker compose -f docker-compose.demo.yml exec -T app php bin/console doctrine:migrations:migrate -n --allow-no-migration
     exit 0
   fi
   sleep 3

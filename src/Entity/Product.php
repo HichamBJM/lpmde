@@ -6,6 +6,7 @@ use App\Repository\ProductRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
+#[ORM\Table(name: 'product')]
 class Product
 {
     #[ORM\Id]
@@ -13,18 +14,36 @@ class Product
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 50, nullable: true)]
+    #[ORM\Column(length: 80, unique: true)]
+    private ?string $sku = null;
+
+    #[ORM\Column(length: 120)]
     private ?string $name = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $description = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column]
     private ?float $price = null;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $active = true;
 
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getSku(): ?string
+    {
+        return $this->sku;
+    }
+
+    public function setSku(string $sku): static
+    {
+        $this->sku = $sku;
+
+        return $this;
     }
 
     public function getName(): ?string
@@ -32,7 +51,7 @@ class Product
         return $this->name;
     }
 
-    public function setName(?string $name): static
+    public function setName(string $name): static
     {
         $this->name = $name;
 
@@ -56,9 +75,21 @@ class Product
         return $this->price;
     }
 
-    public function setPrice(?float $price): static
+    public function setPrice(float $price): static
     {
         $this->price = $price;
+
+        return $this;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->active;
+    }
+
+    public function setActive(bool $active): static
+    {
+        $this->active = $active;
 
         return $this;
     }

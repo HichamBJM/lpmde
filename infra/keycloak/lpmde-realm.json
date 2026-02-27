@@ -51,7 +51,7 @@
       ]
     },
     {
-      "username": "demo-admin",
+      "username": "demo_admin",
       "enabled": true,
       "email": "admin@lpmde.local",
       "firstName": "Demo",

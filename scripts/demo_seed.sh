@@ -115,7 +115,7 @@ ensure_role MODERATEUR
 ensure_role ADMIN
 
 ensure_user demo-user user@lpmde.local Demo User CLIENT
-ensure_user demo-admin admin@lpmde.local Demo Admin ADMIN
+ensure_user demo_admin admin@lpmde.local Demo Admin ADMIN
 ensure_user demo-moderator moderator@lpmde.local Demo Moderator MODERATEUR
 
 echo "[demo_seed] Application des migrations Doctrine..."
@@ -127,7 +127,7 @@ fi
 
 echo "[demo_seed] Comptes Keycloak disponibles :"
 echo "  - demo-user / Demo123!"
-echo "  - demo-admin / Demo123!"
+echo "  - demo_admin / Demo123!"
 echo "  - demo-moderator / Demo123!"
 echo "[demo_seed] Client OAuth: symfony-app (secret: symfony-app-secret)"
 echo "[demo_seed] Realm: lpmde"

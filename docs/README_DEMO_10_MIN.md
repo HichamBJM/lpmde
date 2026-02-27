@@ -108,3 +108,15 @@ Puis vérifiez dans Keycloak:
 - client: `symfony-app`
 - redirect URI: `https://localhost:8443/*`
 
+
+
+Si vous voyez `Failed to connect to localhost port 8081 ... /token`, cela signifie que le backend tente d'appeler Keycloak via l'URL publique.
+Dans la stack Docker, l'URL backend doit être **interne** :
+- `KEYCLOAK_URL=http://keycloak:8080`
+- `KEYCLOAK_PUBLIC_URL=http://localhost:8081`
+
+Vérification rapide :
+```bash
+docker compose -f docker-compose.demo.yml exec app printenv | grep KEYCLOAK
+```
+

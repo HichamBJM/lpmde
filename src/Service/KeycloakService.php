@@ -88,6 +88,11 @@ class KeycloakService
     }
     private function env(string $name, string $default): string
     {
-        return $_ENV[$name] ?? $_SERVER[$name] ?? $default;
+        $value = getenv($name);
+        if (false !== $value && '' !== $value) {
+            return (string) $value;
+        }
+
+        return $_SERVER[$name] ?? $_ENV[$name] ?? $default;
     }
 }

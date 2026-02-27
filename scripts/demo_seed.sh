@@ -91,7 +91,8 @@ kc create clients -r lpmde \
   -s secret=symfony-app-secret \
   -s standardFlowEnabled=true \
   -s directAccessGrantsEnabled=true \
-  -s 'redirectUris=["https://localhost:8443/*","http://localhost:8000/*"]' >/dev/null 2>&1 || true
+  -s 'redirectUris=["https://localhost:8443/*","http://localhost:8088/*"]' \
+  -s 'webOrigins=["https://localhost:8443","http://localhost:8088"]' >/dev/null 2>&1 || true
 
 client_id="$(get_client_id)"
 if [[ -z "$client_id" ]]; then
@@ -102,7 +103,8 @@ fi
 if [[ -n "$client_id" ]]; then
   kc update clients/"$client_id" -r lpmde \
     -s secret=symfony-app-secret \
-    -s 'redirectUris=["https://localhost:8443/*","http://localhost:8000/*"]' \
+    -s 'redirectUris=["https://localhost:8443/*","http://localhost:8088/*"]' \
+    -s 'webOrigins=["https://localhost:8443","http://localhost:8088"]' \
     -s standardFlowEnabled=true \
     -s directAccessGrantsEnabled=true >/dev/null
 fi
@@ -117,7 +119,11 @@ ensure_user demo-admin admin@lpmde.local Demo Admin ADMIN
 ensure_user demo-moderator moderator@lpmde.local Demo Moderator MODERATEUR
 
 echo "[demo_seed] Application des migrations Doctrine..."
-"${COMPOSE[@]}" exec -T app php bin/console doctrine:migrations:migrate -n || true
+if "${COMPOSE[@]}" exec -T app sh -lc 'ls -1 migrations/*.php >/dev/null 2>&1'; then
+  "${COMPOSE[@]}" exec -T app php bin/console doctrine:migrations:migrate -n
+else
+  echo "[demo_seed] Aucune migration trouvée, étape ignorée."
+fi
 
 echo "[demo_seed] Comptes Keycloak disponibles :"
 echo "  - demo-user / Demo123!"
@@ -125,3 +131,4 @@ echo "  - demo-admin / Demo123!"
 echo "  - demo-moderator / Demo123!"
 echo "[demo_seed] Client OAuth: symfony-app (secret: symfony-app-secret)"
 echo "[demo_seed] Realm: lpmde"
+echo "[demo_seed] Ouvre l'application via https://localhost:8443 (ou http://localhost:8088), pas via http://localhost:8000."

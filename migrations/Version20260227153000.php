@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DoctrineMigrations;
 
 use Doctrine\DBAL\Schema\Schema;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260227153000 extends AbstractMigration
@@ -16,7 +17,7 @@ final class Version20260227153000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->abortIf('postgresql' !== $this->connection->getDatabasePlatform()->getName(), 'Migration can only be executed safely on postgresql.');
+        $this->abortIf(!$this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform, 'Migration can only be executed safely on postgresql.');
 
         $this->addSql('CREATE TABLE IF NOT EXISTS product (id SERIAL NOT NULL, sku VARCHAR(80) NOT NULL, name VARCHAR(120) NOT NULL, description VARCHAR(255) DEFAULT NULL, price DOUBLE PRECISION NOT NULL, active BOOLEAN DEFAULT TRUE NOT NULL, PRIMARY KEY(id))');
         $this->addSql('CREATE UNIQUE INDEX IF NOT EXISTS UNIQ_D34A04AD40F6C20 ON product (sku)');
@@ -34,7 +35,7 @@ final class Version20260227153000 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        $this->abortIf('postgresql' !== $this->connection->getDatabasePlatform()->getName(), 'Migration can only be executed safely on postgresql.');
+        $this->abortIf(!$this->connection->getDatabasePlatform() instanceof PostgreSQLPlatform, 'Migration can only be executed safely on postgresql.');
 
         $this->addSql('DROP TABLE IF EXISTS customer_order');
         $this->addSql('DROP TABLE IF EXISTS product');

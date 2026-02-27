@@ -68,15 +68,8 @@ class SecurityController extends AbstractController
             // Récupérer les informations de l'utilisateur
             $userInfo = $keycloakService->getUserInfo($accessToken, $idToken);
 
-            // Chercher ou créer l'utilisateur
-            $user = $userRepository->findOneByKeycloakId($userInfo['sub']);
-
-            if (!$user) {
-                $user = new User();
-                $user->setKeycloakId($userInfo['sub']);
-            }
-
-            // Mettre à jour les informations de l'utilisateur
+            $user = new User();
+            $user->setKeycloakId($userInfo['sub']);
             $user->setEmail($userInfo['email'] ?? 'no-email@example.com');
             $user->setUsername($userInfo['preferred_username'] ?? $userInfo['email']);
             $user->setFirstName($userInfo['given_name'] ?? '');
@@ -88,8 +81,24 @@ class SecurityController extends AbstractController
             }
             $user->setRoles(array_values(array_unique($roles)));
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            try {
+                // Chercher ou créer l'utilisateur persistant
+                $persistedUser = $userRepository->findOneByKeycloakId($userInfo['sub']);
+                if ($persistedUser) {
+                    $user = $persistedUser;
+                    $user->setEmail($userInfo['email'] ?? 'no-email@example.com');
+                    $user->setUsername($userInfo['preferred_username'] ?? $userInfo['email']);
+                    $user->setFirstName($userInfo['given_name'] ?? '');
+                    $user->setLastName($userInfo['family_name'] ?? '');
+                    $user->setRoles(array_values(array_unique($roles)));
+                }
+
+                $entityManager->persist($user);
+                $entityManager->flush();
+            } catch (\Throwable $dbException) {
+                // Démo: garder la session active même si la DB n'est pas joignable
+                $this->addFlash('warning', 'Connexion Keycloak réussie, mais base de données indisponible: mode session temporaire.');
+            }
 
             // Stocker l'utilisateur en session (authentification manuelle)
             $session->set('user_id', $user->getId());

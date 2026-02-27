@@ -5,8 +5,8 @@ COMPOSE="docker compose -f docker-compose.demo.yml"
 
 wait_keycloak() {
   echo "[demo_seed] Attente de Keycloak..."
-  for i in {1..30}; do
-    if $COMPOSE exec -T keycloak sh -lc 'curl -fsS http://localhost:8080/health/ready >/dev/null'; then
+  for i in {1..40}; do
+    if $COMPOSE exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin >/dev/null 2>&1; then
       echo "[demo_seed] Keycloak prêt"
       return 0
     fi
@@ -53,8 +53,7 @@ ensure_user() {
 
 wait_keycloak
 
-echo "[demo_seed] Auth admin Keycloak..."
-kc config credentials --server http://localhost:8080 --realm master --user admin --password admin >/dev/null
+echo "[demo_seed] Session admin Keycloak prête"
 
 echo "[demo_seed] Création/validation realm lpmde..."
 kc create realms -s realm=lpmde -s enabled=true >/dev/null 2>&1 || true

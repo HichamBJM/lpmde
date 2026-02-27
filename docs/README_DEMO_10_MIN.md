@@ -75,3 +75,8 @@ Si besoin, nettoyez aussi le cache Symfony dans le conteneur:
 ```bash
 docker compose -f docker-compose.demo.yml exec app rm -rf var/cache/*
 ```
+
+
+Si la connexion Keycloak ouvre une page `Not Found`, vérifiez la séparation URL interne/externe:
+- `KEYCLOAK_URL=http://keycloak:8080` (backend conteneur -> Keycloak)
+- `KEYCLOAK_PUBLIC_URL=http://localhost:8081` (navigateur utilisateur -> Keycloak)

@@ -11,6 +11,7 @@ services:
       DATABASE_URL: postgresql://lpmde:lpmde@app-db:5432/lpmde?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: amqp://guest:guest@rabbitmq:5672/%2f/messages
       KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_PUBLIC_URL: http://localhost:8081
       KEYCLOAK_REALM: lpmde
       KEYCLOAK_CLIENT_ID: symfony-app
       KEYCLOAK_CLIENT_SECRET: symfony-app-secret

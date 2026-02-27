@@ -61,12 +61,11 @@
 
         {% for label, messages in app.flashes %}
             {% for message in messages %}
-                {% if message in hiddenFlashMessages %}
-                    {% continue %}
+                {% if message not in hiddenFlashMessages %}
+                    <div class="max-w-[1200px] mx-auto px-4 lg:px-10 mt-4">
+                        <div class="rounded-lg px-4 py-3 text-sm {{ label == 'error' ? 'bg-red-900/60 text-red-100 border border-red-500/40' : 'bg-emerald-900/60 text-emerald-100 border border-emerald-500/40' }}">{{ message }}</div>
+                    </div>
                 {% endif %}
-                <div class="max-w-[1200px] mx-auto px-4 lg:px-10 mt-4">
-                    <div class="rounded-lg px-4 py-3 text-sm {{ label == 'error' ? 'bg-red-900/60 text-red-100 border border-red-500/40' : 'bg-emerald-900/60 text-emerald-100 border border-emerald-500/40' }}">{{ message }}</div>
-                </div>
             {% endfor %}
         {% endfor %}
 

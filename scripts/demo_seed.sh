@@ -2,13 +2,18 @@
 set -euo pipefail
 
 COMPOSE="docker compose -f docker-compose.demo.yml"
+KCADM_CONFIG_PATH="/tmp/kcadm.config"
+
+keycloak_exec() {
+  $COMPOSE exec -T -e KCADM_CONFIG="$KCADM_CONFIG_PATH" keycloak "$@"
+}
 
 wait_keycloak() {
   local last_error=""
 
   echo "[demo_seed] Attente de Keycloak..."
   for i in {1..120}; do
-    if output="$($COMPOSE exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin 2>&1)"; then
+    if output="$(keycloak_exec /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin 2>&1)"; then
       echo "[demo_seed] Keycloak prêt"
       return 0
     fi
@@ -28,13 +33,16 @@ wait_keycloak() {
   fi
 
   echo "[demo_seed] Keycloak non prêt après attente" >&2
+  if [[ -n "$last_error" ]]; then
+    echo "[demo_seed] Dernière erreur kcadm: $last_error" >&2
+  fi
   echo "[demo_seed] Derniers logs Keycloak:" >&2
   $COMPOSE logs --tail=40 keycloak >&2 || true
   return 1
 }
 
 kc() {
-  $COMPOSE exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"
+  keycloak_exec /opt/keycloak/bin/kcadm.sh "$@"
 }
 
 get_client_id() {

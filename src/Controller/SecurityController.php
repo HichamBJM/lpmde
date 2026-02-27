@@ -24,6 +24,12 @@ class SecurityController extends AbstractController
     #[Route('/login/keycloak/redirect', name: 'app_login_keycloak_redirect')]
     public function redirectToKeycloak(KeycloakService $keycloakService, Request $request): Response
     {
+        if (!$this->checkLoginRateLimit($request)) {
+            $this->addFlash('error', 'Trop de tentatives de connexion, réessayez dans 60 secondes.');
+
+            return $this->redirectToRoute('app_login_keycloak');
+        }
+
         // Générer un state pour la sécurité CSRF
         $state = bin2hex(random_bytes(32));
         $session = $request->getSession();
@@ -137,6 +143,31 @@ class SecurityController extends AbstractController
             'user_email' => $session->get('user_email'),
         ]);
     }
+
+
+    private function checkLoginRateLimit(Request $request): bool
+    {
+        $session = $request->getSession();
+        $window = (int) $session->get('auth_window', 0);
+        $attempts = (int) $session->get('auth_attempts', 0);
+        $now = time();
+
+        if ($window === 0 || ($now - $window) > 60) {
+            $session->set('auth_window', $now);
+            $session->set('auth_attempts', 1);
+
+            return true;
+        }
+
+        if ($attempts >= 10) {
+            return false;
+        }
+
+        $session->set('auth_attempts', $attempts + 1);
+
+        return true;
+    }
+
 
 
     private function isAdminEmail(string $email): bool

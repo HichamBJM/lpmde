@@ -120,3 +120,18 @@ Vérification rapide :
 docker compose -f docker-compose.demo.yml exec app printenv | grep KEYCLOAK
 ```
 
+
+
+Si vous voyez `401 Unauthorized ... /userinfo`, le plus souvent le client Keycloak est incohérent (secret/realm).
+Réparez avec:
+```bash
+./scripts/demo_seed.sh
+```
+
+Si ça persiste, réinitialisez entièrement la stack (volumes inclus) puis reseed:
+```bash
+./scripts/demo_down.sh
+docker compose -f docker-compose.demo.yml down -v
+./scripts/demo_up.sh
+./scripts/demo_seed.sh
+```

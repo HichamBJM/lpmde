@@ -21,12 +21,12 @@ kc() {
 }
 
 get_client_id() {
-  kc get clients -r lpmde -q clientId=symfony-app | sed -n 's/.*"id" : "\([^"]*\)".*/\1/p' | head -n1
+  kc get clients -r lpmde -q clientId=symfony-app | sed -nE 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -n1
 }
 
 get_user_id() {
   local username="$1"
-  kc get users -r lpmde -q username="$username" | sed -n 's/.*"id" : "\([^"]*\)".*/\1/p' | head -n1
+  kc get users -r lpmde -q username="$username" | sed -nE 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' | head -n1
 }
 
 ensure_role() {
@@ -70,6 +70,11 @@ kc create clients -r lpmde \
   -s 'redirectUris=["https://localhost:8443/*","http://localhost:8000/*"]' >/dev/null 2>&1 || true
 
 client_id="$(get_client_id)"
+if [[ -z "$client_id" ]]; then
+  echo "[demo_seed] ERREUR: client symfony-app introuvable après création." >&2
+  exit 1
+fi
+
 if [[ -n "$client_id" ]]; then
   kc update clients/"$client_id" -r lpmde \
     -s secret=symfony-app-secret \

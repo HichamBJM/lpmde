@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMPOSE="docker compose -f docker-compose.demo.yml"
+COMPOSE=(env MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' docker compose -f docker-compose.demo.yml)
 KCADM_CONFIG_PATH="/tmp/kcadm.config"
 
 keycloak_exec() {
-  $COMPOSE exec -T -e KCADM_CONFIG="$KCADM_CONFIG_PATH" keycloak "$@"
+  "${COMPOSE[@]}" exec -T -e KCADM_CONFIG="$KCADM_CONFIG_PATH" keycloak "$@"
 }
 
 wait_keycloak() {
   local last_error=""
 
   echo "[demo_seed] Attente de Keycloak..."
-  for i in {1..120}; do
+  for i in {1..30}; do
     if output="$(keycloak_exec /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin 2>&1)"; then
       echo "[demo_seed] Keycloak prêt"
       return 0
@@ -21,7 +21,7 @@ wait_keycloak() {
     last_error="$output"
 
     if (( i % 10 == 0 )); then
-      echo "[demo_seed] Keycloak pas encore prêt (${i}/120)..."
+      echo "[demo_seed] Keycloak pas encore prêt (${i}/30)..."
     fi
 
     sleep 3
@@ -37,7 +37,7 @@ wait_keycloak() {
     echo "[demo_seed] Dernière erreur kcadm: $last_error" >&2
   fi
   echo "[demo_seed] Derniers logs Keycloak:" >&2
-  $COMPOSE logs --tail=40 keycloak >&2 || true
+  "${COMPOSE[@]}" logs --tail=40 keycloak >&2 || true
   return 1
 }
 
@@ -117,7 +117,7 @@ ensure_user demo-admin admin@lpmde.local Demo Admin ADMIN
 ensure_user demo-moderator moderator@lpmde.local Demo Moderator MODERATEUR
 
 echo "[demo_seed] Application des migrations Doctrine..."
-$COMPOSE exec -T app php bin/console doctrine:migrations:migrate -n || true
+"${COMPOSE[@]}" exec -T app php bin/console doctrine:migrations:migrate -n || true
 
 echo "[demo_seed] Comptes Keycloak disponibles :"
 echo "  - demo-user / Demo123!"

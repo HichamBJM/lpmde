@@ -4,15 +4,32 @@ set -euo pipefail
 COMPOSE="docker compose -f docker-compose.demo.yml"
 
 wait_keycloak() {
+  local last_error=""
+
   echo "[demo_seed] Attente de Keycloak..."
-  for i in {1..40}; do
-    if $COMPOSE exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin >/dev/null 2>&1; then
+  for i in {1..120}; do
+    if output="$($COMPOSE exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin 2>&1)"; then
       echo "[demo_seed] Keycloak prêt"
       return 0
     fi
+
+    last_error="$output"
+
+    if (( i % 10 == 0 )); then
+      echo "[demo_seed] Keycloak pas encore prêt (${i}/120)..."
+    fi
+
     sleep 3
   done
+
+  if printf '%s' "$last_error" | grep -qi 'invalid user credentials'; then
+    echo "[demo_seed] Les credentials admin/admin sont refusés."
+    echo "[demo_seed] Astuce: supprime les volumes puis relance la démo (./scripts/demo_down.sh && docker compose -f docker-compose.demo.yml down -v)." >&2
+  fi
+
   echo "[demo_seed] Keycloak non prêt après attente" >&2
+  echo "[demo_seed] Derniers logs Keycloak:" >&2
+  $COMPOSE logs --tail=40 keycloak >&2 || true
   return 1
 }
 

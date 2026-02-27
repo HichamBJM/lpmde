@@ -17,12 +17,12 @@ class KeycloakService
         private HttpClientInterface $httpClient
     ) {
         // Configuration Keycloak - À adapter selon votre installation
-        $this->keycloakUrl = $_ENV['KEYCLOAK_URL'] ?? 'http://localhost:8080';
-        $this->keycloakPublicUrl = $_ENV['KEYCLOAK_PUBLIC_URL'] ?? $this->keycloakUrl;
-        $this->realm = $_ENV['KEYCLOAK_REALM'] ?? 'master';
-        $this->clientId = $_ENV['KEYCLOAK_CLIENT_ID'] ?? 'symfony-app';
-        $this->clientSecret = $_ENV['KEYCLOAK_CLIENT_SECRET'] ?? '';
-        $this->redirectUri = $_ENV['KEYCLOAK_REDIRECT_URI'] ?? 'http://localhost:8000/login/keycloak/callback';
+        $this->keycloakUrl = $this->env('KEYCLOAK_URL', 'http://localhost:8080');
+        $this->keycloakPublicUrl = $this->env('KEYCLOAK_PUBLIC_URL', $this->keycloakUrl);
+        $this->realm = $this->env('KEYCLOAK_REALM', 'master');
+        $this->clientId = $this->env('KEYCLOAK_CLIENT_ID', 'symfony-app');
+        $this->clientSecret = $this->env('KEYCLOAK_CLIENT_SECRET', '');
+        $this->redirectUri = $this->env('KEYCLOAK_REDIRECT_URI', 'http://localhost:8000/login/keycloak/callback');
     }
 
     public function getAuthorizationUrl(string $state): string
@@ -85,5 +85,9 @@ class KeycloakService
             $this->keycloakUrl,
             $this->realm
         );
+    }
+    private function env(string $name, string $default): string
+    {
+        return $_ENV[$name] ?? $_SERVER[$name] ?? $default;
     }
 }

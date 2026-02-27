@@ -80,3 +80,31 @@ docker compose -f docker-compose.demo.yml exec app rm -rf var/cache/*
 Si la connexion Keycloak ouvre une page `Not Found`, vérifiez la séparation URL interne/externe:
 - `KEYCLOAK_URL=http://keycloak:8080` (backend conteneur -> Keycloak)
 - `KEYCLOAK_PUBLIC_URL=http://localhost:8081` (navigateur utilisateur -> Keycloak)
+
+
+Si vous êtes redirigé vers `http://localhost:8080/realms/master/...`, c'est que les variables Keycloak chargées sont incorrectes/anciennes.
+Vérifiez et corrigez dans le conteneur `app`:
+```bash
+docker compose -f docker-compose.demo.yml exec app printenv | grep KEYCLOAK
+```
+Valeurs attendues:
+- `KEYCLOAK_URL=http://keycloak:8080` (interne)
+- `KEYCLOAK_PUBLIC_URL=http://localhost:8081` (navigateur)
+- `KEYCLOAK_REALM=lpmde`
+
+Puis redémarrez proprement:
+```bash
+./scripts/demo_down.sh
+docker compose -f docker-compose.demo.yml up -d --build --force-recreate
+```
+
+
+Si Keycloak affiche **"Client not found"**, rejouez le seed idempotent (realm/client/users):
+```bash
+./scripts/demo_seed.sh
+```
+Puis vérifiez dans Keycloak:
+- realm: `lpmde`
+- client: `symfony-app`
+- redirect URI: `https://localhost:8443/*`
+

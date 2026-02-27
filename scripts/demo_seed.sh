@@ -12,7 +12,7 @@ wait_keycloak() {
   local last_error=""
 
   echo "[demo_seed] Attente de Keycloak..."
-  for i in {1..30}; do
+  for i in {1..120}; do
     if output="$(keycloak_exec /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin 2>&1)"; then
       echo "[demo_seed] Keycloak prêt"
       return 0
@@ -21,7 +21,7 @@ wait_keycloak() {
     last_error="$output"
 
     if (( i % 10 == 0 )); then
-      echo "[demo_seed] Keycloak pas encore prêt (${i}/30)..."
+      echo "[demo_seed] Keycloak pas encore prêt (${i}/120)..."
     fi
 
     sleep 3

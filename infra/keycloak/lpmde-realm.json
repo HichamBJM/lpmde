@@ -7,16 +7,29 @@
       "enabled": true,
       "publicClient": false,
       "secret": "symfony-app-secret",
-      "redirectUris": ["https://localhost:8443/*", "http://localhost:8000/*"],
+      "redirectUris": [
+        "https://localhost:8443/*",
+        "http://localhost:8088/*"
+      ],
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true
+      "directAccessGrantsEnabled": true,
+      "webOrigins": [
+        "https://localhost:8443",
+        "http://localhost:8088"
+      ]
     }
   ],
   "roles": {
     "realm": [
-      {"name": "CLIENT"},
-      {"name": "MODERATEUR"},
-      {"name": "ADMIN"}
+      {
+        "name": "CLIENT"
+      },
+      {
+        "name": "MODERATEUR"
+      },
+      {
+        "name": "ADMIN"
+      }
     ]
   },
   "users": [
@@ -26,8 +39,16 @@
       "email": "user@lpmde.local",
       "firstName": "Demo",
       "lastName": "User",
-      "credentials": [{"type": "password", "value": "Demo123!", "temporary": false}],
-      "realmRoles": ["CLIENT"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CLIENT"
+      ]
     },
     {
       "username": "demo-admin",
@@ -35,8 +56,16 @@
       "email": "admin@lpmde.local",
       "firstName": "Demo",
       "lastName": "Admin",
-      "credentials": [{"type": "password", "value": "Demo123!", "temporary": false}],
-      "realmRoles": ["ADMIN"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
     },
     {
       "username": "demo-moderator",
@@ -44,8 +73,16 @@
       "email": "moderator@lpmde.local",
       "firstName": "Demo",
       "lastName": "Moderator",
-      "credentials": [{"type": "password", "value": "Demo123!", "temporary": false}],
-      "realmRoles": ["MODERATEUR"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MODERATEUR"
+      ]
     }
   ]
 }

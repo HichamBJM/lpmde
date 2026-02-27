@@ -107,8 +107,12 @@ class SecurityController extends AbstractController
             $session->set('is_authenticated', true);
             $session->set('is_admin', in_array('ROLE_ADMIN', $user->getRoles(), true));
 
-            // Envoyer la notification via RabbitMQ
-            $bus->dispatch(new UserLoginNotification($user->getFullName()));
+            try {
+                // Envoyer la notification via RabbitMQ
+                $bus->dispatch(new UserLoginNotification($user->getFullName()));
+            } catch (\Throwable $busException) {
+                $this->addFlash('warning', 'Connexion réussie, mais la notification asynchrone n\'a pas pu être envoyée.');
+            }
 
             // Message de succès
             $this->addFlash('success', sprintf(

@@ -2,29 +2,26 @@
 
 namespace App\Service;
 
+use App\Entity\Order;
 use App\Enum\OrderStatus;
+use App\Repository\OrderRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use InvalidArgumentException;
-use Symfony\Component\HttpFoundation\RequestStack;
 
 class OrderService
 {
-    private const ORDERS_KEY = 'orders';
-
-    public function __construct(private readonly RequestStack $requestStack)
-    {
+    public function __construct(
+        private readonly OrderRepository $orderRepository,
+        private readonly EntityManagerInterface $entityManager
+    ) {
     }
 
     /** @return list<array<string, mixed>> */
     public function all(): array
     {
-        $orders = $this->requestStack->getSession()->get(self::ORDERS_KEY, []);
+        $orders = $this->orderRepository->findAllNewestFirst();
 
-        usort(
-            $orders,
-            static fn (array $a, array $b): int => strcmp((string) $b['createdAt'], (string) $a['createdAt'])
-        );
-
-        return $orders;
+        return array_map([$this, 'normalize'], $orders);
     }
 
     /** @param list<array{sku:string,name:string,price:float,quantity:int,subtotal:float}> $items */
@@ -34,27 +31,27 @@ class OrderService
             throw new InvalidArgumentException('Le panier est vide.');
         }
 
-        $order = [
-            'number' => 'CMD-'.strtoupper(substr(bin2hex(random_bytes(4)), 0, 8)),
-            'status' => OrderStatus::DRAFT,
-            'totalAmount' => round($totalAmount, 2),
-            'items' => $items,
-            'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
-            'customerEmail' => $customerEmail,
-            'history' => [
-                [
-                    'at' => (new \DateTimeImmutable())->format(DATE_ATOM),
-                    'status' => OrderStatus::DRAFT,
-                    'label' => 'Panier transformé en commande',
-                ],
+        $now = new \DateTimeImmutable();
+
+        $order = new Order();
+        $order->setNumber('CMD-'.strtoupper(substr(bin2hex(random_bytes(4)), 0, 8)));
+        $order->setStatus(OrderStatus::DRAFT);
+        $order->setTotalAmount(round($totalAmount, 2));
+        $order->setItems($items);
+        $order->setCreatedAt($now);
+        $order->setCustomerEmail($customerEmail);
+        $order->setHistory([
+            [
+                'at' => $now->format(DATE_ATOM),
+                'status' => OrderStatus::DRAFT,
+                'label' => 'Panier transformé en commande',
             ],
-        ];
+        ]);
 
-        $orders = $this->all();
-        $orders[] = $order;
-        $this->save($orders);
+        $this->entityManager->persist($order);
+        $this->entityManager->flush();
 
-        return $order;
+        return $this->normalize($order);
     }
 
     /** @return list<array<string, mixed>> */
@@ -81,47 +78,49 @@ class OrderService
 
     public function find(string $number): ?array
     {
-        foreach ($this->all() as $order) {
-            if ($order['number'] === $number) {
-                return $order;
-            }
-        }
+        $order = $this->orderRepository->findOneBy(['number' => $number]);
 
-        return null;
+        return $order ? $this->normalize($order) : null;
     }
 
     public function transition(string $number, string $targetStatus, string $label): ?array
     {
-        $orders = $this->all();
-
-        foreach ($orders as $index => $order) {
-            $currentStatus = (string) $order['status'];
-            if ($order['number'] !== $number) {
-                continue;
-            }
-
-            if (!OrderStatus::canTransition($currentStatus, $targetStatus)) {
-                throw new InvalidArgumentException(sprintf('Transition invalide : %s → %s', $currentStatus, $targetStatus));
-            }
-
-            $orders[$index]['status'] = $targetStatus;
-            $orders[$index]['history'][] = [
-                'at' => (new \DateTimeImmutable())->format(DATE_ATOM),
-                'status' => $targetStatus,
-                'label' => $label,
-            ];
-
-            $this->save($orders);
-
-            return $orders[$index];
+        $order = $this->orderRepository->findOneBy(['number' => $number]);
+        if (!$order) {
+            return null;
         }
 
-        return null;
+        $currentStatus = (string) $order->getStatus();
+        if (!OrderStatus::canTransition($currentStatus, $targetStatus)) {
+            throw new InvalidArgumentException(sprintf('Transition invalide : %s → %s', $currentStatus, $targetStatus));
+        }
+
+        $history = $order->getHistory();
+        $history[] = [
+            'at' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'status' => $targetStatus,
+            'label' => $label,
+        ];
+
+        $order->setStatus($targetStatus);
+        $order->setHistory($history);
+
+        $this->entityManager->flush();
+
+        return $this->normalize($order);
     }
 
-    /** @param list<array<string,mixed>> $orders */
-    private function save(array $orders): void
+    /** @return array<string,mixed> */
+    private function normalize(Order $order): array
     {
-        $this->requestStack->getSession()->set(self::ORDERS_KEY, $orders);
+        return [
+            'number' => $order->getNumber(),
+            'status' => $order->getStatus(),
+            'totalAmount' => $order->getTotalAmount(),
+            'items' => $order->getItems(),
+            'createdAt' => $order->getCreatedAt()?->format(DATE_ATOM),
+            'customerEmail' => $order->getCustomerEmail(),
+            'history' => $order->getHistory(),
+        ];
     }
 }

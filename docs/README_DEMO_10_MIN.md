@@ -63,3 +63,15 @@ Si l’erreur persiste, forcez une reconstruction propre des conteneurs/images:
 docker compose -f docker-compose.demo.yml build --no-cache
 ./scripts/demo_up.sh
 ```
+
+
+Diagnostic rapide du mode d'exécution:
+```bash
+docker compose -f docker-compose.demo.yml exec app printenv APP_ENV
+```
+Résultat attendu: `prod`.
+
+Si besoin, nettoyez aussi le cache Symfony dans le conteneur:
+```bash
+docker compose -f docker-compose.demo.yml exec app rm -rf var/cache/*
+```

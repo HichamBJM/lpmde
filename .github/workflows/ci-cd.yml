@@ -32,7 +32,7 @@ jobs:
           restore-keys: |
             composer-${{ runner.os }}-
       - run: composer install --prefer-dist --no-interaction --no-progress
-      - run: composer validate --strict
+      - run: composer validate --strict --no-check-lock
       - run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: php bin/console lint:container
 

@@ -2,22 +2,28 @@
 
 namespace App\Service;
 
+use App\Entity\Product;
+use App\Repository\ProductRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 class CartService
 {
     private const CART_KEY = 'cart';
 
-    /** @var array<string, array{name:string,price:float}> */
-    private const CATALOG = [
-        'haunted-castle-collector' => ['name' => 'Haunted Castle Collector Set', 'price' => 120.00],
-        'ancient-totem-figurine' => ['name' => 'Ancient Totem Figurine', 'price' => 85.00],
-        'dark-rituals-board-game' => ['name' => 'Dark Rituals Board Game', 'price' => 45.00],
-        'ghostly-manifestation-art' => ['name' => 'Ghostly Manifestation Art', 'price' => 60.00],
+    /** @var array<string, array{name:string,price:float,description:string}> */
+    private const DEFAULT_CATALOG = [
+        'haunted-castle-collector' => ['name' => 'Haunted Castle Collector Set', 'price' => 120.00, 'description' => 'Collection premium château hanté'],
+        'ancient-totem-figurine' => ['name' => 'Ancient Totem Figurine', 'price' => 85.00, 'description' => 'Figurine totem ancien'],
+        'dark-rituals-board-game' => ['name' => 'Dark Rituals Board Game', 'price' => 45.00, 'description' => 'Jeu de plateau dark rituals'],
+        'ghostly-manifestation-art' => ['name' => 'Ghostly Manifestation Art', 'price' => 60.00, 'description' => 'Affiche collection manifestation fantôme'],
     ];
 
-    public function __construct(private readonly RequestStack $requestStack)
-    {
+    public function __construct(
+        private readonly RequestStack $requestStack,
+        private readonly ProductRepository $productRepository,
+        private readonly EntityManagerInterface $entityManager
+    ) {
     }
 
     /** @return array<string, int> */
@@ -28,7 +34,8 @@ class CartService
 
     public function add(string $sku): void
     {
-        if (!isset(self::CATALOG[$sku])) {
+        $catalog = $this->catalog();
+        if (!isset($catalog[$sku])) {
             return;
         }
 
@@ -43,7 +50,7 @@ class CartService
 
         if ($quantity <= 0) {
             unset($cart[$sku]);
-        } elseif (isset(self::CATALOG[$sku])) {
+        } elseif (isset($this->catalog()[$sku])) {
             $cart[$sku] = $quantity;
         }
 
@@ -65,13 +72,15 @@ class CartService
     /** @return list<array{sku:string,name:string,price:float,quantity:int,subtotal:float}> */
     public function getDetailedItems(): array
     {
+        $catalog = $this->catalog();
         $items = [];
+
         foreach ($this->getRawCart() as $sku => $quantity) {
-            if (!isset(self::CATALOG[$sku])) {
+            if (!isset($catalog[$sku])) {
                 continue;
             }
 
-            $product = self::CATALOG[$sku];
+            $product = $catalog[$sku];
             $items[] = [
                 'sku' => $sku,
                 'name' => $product['name'],
@@ -101,6 +110,36 @@ class CartService
     /** @return array<string, array{name:string,price:float}> */
     public function catalog(): array
     {
-        return self::CATALOG;
+        $this->ensureCatalogSeeded();
+
+        $catalog = [];
+        foreach ($this->productRepository->findActiveOrderedByName() as $product) {
+            $sku = (string) $product->getSku();
+            $catalog[$sku] = [
+                'name' => (string) $product->getName(),
+                'price' => (float) $product->getPrice(),
+            ];
+        }
+
+        return $catalog;
+    }
+
+    private function ensureCatalogSeeded(): void
+    {
+        if ($this->productRepository->count([]) > 0) {
+            return;
+        }
+
+        foreach (self::DEFAULT_CATALOG as $sku => $data) {
+            $product = new Product();
+            $product->setSku($sku);
+            $product->setName($data['name']);
+            $product->setDescription($data['description']);
+            $product->setPrice($data['price']);
+            $product->setActive(true);
+            $this->entityManager->persist($product);
+        }
+
+        $this->entityManager->flush();
     }
 }

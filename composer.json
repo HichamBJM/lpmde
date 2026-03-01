@@ -1,4 +1,6 @@
 {
+    "name": "lpmde/devsecops-poc",
+    "description": "POC e-commerce Symfony avec pipeline DevSecOps, observabilite et securite",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",

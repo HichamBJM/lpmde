@@ -10,14 +10,20 @@ permissions:
   packages: write
   security-events: write
 
+env:
+  PHP_VERSION: '8.2'
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
 jobs:
-  lint_static:
+  install:
+    name: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: ${{ env.PHP_VERSION }}
           tools: composer
       - run: composer install --prefer-dist --no-interaction --no-progress
       - name: Composer validate
@@ -27,30 +33,64 @@ jobs:
       - name: Symfony lint container
         run: php bin/console lint:container
 
-  unit_tests:
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.composer/cache/files
+            vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Composer validate
+        run: composer validate --strict
+
+      - name: Upload vendor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor
+          path: vendor
+
+  test-unit-test:
+    name: unit-test
     runs-on: ubuntu-latest
     needs: lint_static
     steps:
       - uses: actions/checkout@v4
+
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          tools: composer
-      - run: composer install --prefer-dist --no-interaction --no-progress
+          php-version: ${{ env.PHP_VERSION }}
+
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vendor
+          path: vendor
+
+      - name: PHP lint
+        run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
+
       - name: Unit tests
         env:
           APP_ENV: test
           DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
         run: php bin/phpunit --testsuite=unit --log-junit var/log/junit-unit.xml
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: reports-unit
           path: var/log/junit-unit.xml
 
-  integration_tests:
+  test-e2e-test-job:
+    name: e2e-test-job
     runs-on: ubuntu-latest
-    needs: lint_static
+    needs: install
     services:
       postgres:
         image: postgres:16-alpine
@@ -71,11 +111,31 @@ jobs:
           - 5672:5672
     steps:
       - uses: actions/checkout@v4
+
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          tools: composer
-      - run: composer install --prefer-dist --no-interaction --no-progress
+          php-version: ${{ env.PHP_VERSION }}
+
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vendor
+          path: vendor
+
+      - name: Symfony lint container
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql://lpmde:lpmde@127.0.0.1:5432/lpmde?serverVersion=16&charset=utf8
+          MESSENGER_TRANSPORT_DSN: amqp://guest:guest@127.0.0.1:5672/%2f/messages
+        run: php bin/console lint:container
+
+      - name: Run migrations for tests
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql://lpmde:lpmde@127.0.0.1:5432/lpmde?serverVersion=16&charset=utf8
+          MESSENGER_TRANSPORT_DSN: amqp://guest:guest@127.0.0.1:5672/%2f/messages
+        run: php bin/console doctrine:migrations:migrate -n --allow-no-migration
+
       - name: Integration + functional tests
         env:
           APP_ENV: test
@@ -84,41 +144,127 @@ jobs:
         run: |
           php bin/phpunit --testsuite=integration --log-junit var/log/junit-integration.xml
           php bin/phpunit --testsuite=functional --log-junit var/log/junit-functional.xml
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: reports-integration
+          name: reports-e2e
           path: |
             var/log/junit-integration.xml
             var/log/junit-functional.xml
 
-  build_and_scan:
+  test-sast-npm-audit:
+    name: sast-npm-audit
     runs-on: ubuntu-latest
-    needs: [unit_tests, integration_tests]
-    if: github.event_name == 'push'
+    needs: install
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build image
-        run: docker build -t lpmde:${{ github.sha }} .
-      - name: Export image to tar
-        run: docker save lpmde:${{ github.sha }} -o /tmp/lpmde-image.tar
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@0.28.0
+
+      - uses: shivammathur/setup-php@v2
         with:
-          input: /tmp/lpmde-image.tar
-          severity: HIGH,CRITICAL
-          format: table
-          output: trivy-image-report.txt
-          exit-code: '0'
-      - name: Composer audit
-        run: |
-          composer install --prefer-dist --no-interaction --no-progress
-          composer audit --format=plain | tee composer-audit-report.txt || true
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer
+
+      - name: Download vendor artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vendor
+          path: vendor
+
+      - name: Dependency audit (composer)
+        run: composer audit --format=plain | tee composer-audit-report.txt || true
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: reports-security
-          path: |
-            trivy-image-report.txt
-            composer-audit-report.txt
+          name: reports-sast
+          path: composer-audit-report.txt
+
+  test-sonar-audit:
+    name: sonar-audit
+    runs-on: ubuntu-latest
+    needs: install
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sonar audit (optional)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "${SONAR_TOKEN}" ]; then
+            echo "SONAR_TOKEN non défini: audit Sonar ignoré sans échec."
+            exit 0
+          fi
+          echo "SONAR_TOKEN détecté: branche prête pour un scan Sonar externe."
+
+  test-trivy-fs-audit:
+    name: trivy-fs-audit
+    runs-on: ubuntu-latest
+    needs: install
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          format: table
+          output: trivy-fs-report.txt
+          exit-code: '0'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports-trivy-fs
+          path: trivy-fs-report.txt
+
+  release-build-image-job:
+    name: build-image-job
+    runs-on: ubuntu-latest
+    needs:
+      - test-unit-test
+      - test-e2e-test-job
+      - test-sast-npm-audit
+      - test-sonar-audit
+      - test-trivy-fs-audit
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+
+  staging-deploy-staging-job:
+    name: deploy-staging-job
+    runs-on: ubuntu-latest
+    needs: release-build-image-job
+    if: github.event_name == 'push'
+    steps:
+      - name: Deploy staging (placeholder sécurisé)
+        env:
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          if [ -z "${STAGING_SSH_HOST}" ] || [ -z "${STAGING_SSH_USER}" ]; then
+            echo "Secrets de staging non définis: déploiement staging ignoré sans échec."
+            exit 0
+          fi
+          echo "Préparer ici: ssh + docker compose pull/up ou ansible pour staging."

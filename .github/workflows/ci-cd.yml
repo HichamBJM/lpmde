@@ -16,6 +16,7 @@ env:
 
 jobs:
   install:
+    name: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +41,7 @@ jobs:
 
   lint_and_static_checks:
     runs-on: ubuntu-latest
-    needs: install
+    needs: lint_static
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2

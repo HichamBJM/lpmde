@@ -37,7 +37,7 @@
                 <div class="relative group">
                     <button class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all">
                         <span class="text-white material-symbols-outlined">account_circle</span>
-                        <span class="text-white text-sm font-semibold hidden md:block">{{ app.session.get('user_name') }}</span>
+                        <span class="text-white text-sm font-semibold hidden md:block">{{ app.session.get('user_email') }}</span>
                     </button>
                     <!-- Dropdown -->
                     <div class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">

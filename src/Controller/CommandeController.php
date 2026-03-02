@@ -74,7 +74,11 @@ final class CommandeController extends AbstractController
             $order = $orderService->transition((string) $order['number'], OrderStatus::PREPARING, 'Préparation logistique lancée');
 
             if (null !== $order) {
-                $bus->dispatch(new ShippingRequested((string) $order['number']));
+                try {
+                    $bus->dispatch(new ShippingRequested((string) $order['number']));
+                } catch (\Throwable $transportException) {
+                    $this->addFlash('warning', 'Commande créée mais envoi asynchrone indisponible (transport/message bus).');
+                }
             }
 
             $cartService->clear();

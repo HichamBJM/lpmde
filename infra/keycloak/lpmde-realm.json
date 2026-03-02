@@ -1,0 +1,88 @@
+{
+  "realm": "lpmde",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "symfony-app",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "symfony-app-secret",
+      "redirectUris": [
+        "https://localhost:8443/*",
+        "http://localhost:8088/*"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "webOrigins": [
+        "https://localhost:8443",
+        "http://localhost:8088"
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "CLIENT"
+      },
+      {
+        "name": "MODERATEUR"
+      },
+      {
+        "name": "ADMIN"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "demo-user",
+      "enabled": true,
+      "email": "user@lpmde.local",
+      "firstName": "Demo",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CLIENT"
+      ]
+    },
+    {
+      "username": "demo_admin",
+      "enabled": true,
+      "email": "admin@lpmde.local",
+      "firstName": "Demo",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "username": "demo-moderator",
+      "enabled": true,
+      "email": "moderator@lpmde.local",
+      "firstName": "Demo",
+      "lastName": "Moderator",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Demo123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "MODERATEUR"
+      ]
+    }
+  ]
+}

@@ -218,3 +218,14 @@ Propriétaire
 ---
 
 🎉 **Profitez de votre application avec authentification Keycloak et notifications RabbitMQ !**
+
+
+## ⚡ Démo prête en 10 minutes
+
+```bash
+./scripts/demo_up.sh
+./scripts/demo_seed.sh
+./scripts/demo_scenario.sh
+```
+
+Documentation complète: `docs/README_DEMO_10_MIN.md`.

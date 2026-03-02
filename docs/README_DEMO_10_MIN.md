@@ -15,6 +15,11 @@
 ./scripts/demo_scenario.sh
 ```
 
+## 3bis) Vérifier RabbitMQ (publish + consume)
+```bash
+./scripts/demo_rabbitmq_test.sh
+```
+
 ## 4) (Optionnel) Lancer la montée en charge
 ```bash
 ./scripts/demo_load_test.sh

@@ -20,12 +20,23 @@
 ./scripts/demo_load_test.sh
 ```
 
+Le script pousse aussi les métriques k6 dans Prometheus (remote write) pour Grafana.
+- Endpoint par défaut: `http://localhost:9090/api/v1/write`
+- Surcharge possible:
+```bash
+K6_PROM_RW_URL=http://localhost:9090/api/v1/write ./scripts/demo_load_test.sh
+```
+
 ## 5) Accès outils
 - Application HTTPS : `https://localhost:8443`
 - Keycloak : `http://localhost:8081` (`admin/admin`)
 - RabbitMQ : `http://localhost:15672` (`guest/guest`)
 - Prometheus : `http://localhost:9090`
 - Grafana : `http://localhost:3000` (`admin/admin`)
+
+Dans Grafana (Explore), vérifiez d'abord:
+- `up{job="lpmde-app"}` (métriques app)
+- `k6_http_reqs_total` (métriques de charge k6)
 
 ## 6) Arrêt + nettoyage
 ```bash

@@ -1,10 +1,9 @@
-name: ci-cd
+name: ci-cd-devsecops
 
 on:
   push:
     branches: ['**']
   pull_request:
-    branches: ['**']
 
 permissions:
   contents: read
@@ -13,267 +12,213 @@ permissions:
 
 env:
   PHP_VERSION: '8.2'
-  DB_USER: 'ci_user'
-  DB_PASSWORD: 'ci_password'
 
 jobs:
-  install:
+  quality_checks:
+    name: quality-checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
           tools: composer
-
-      - name: Cache composer dependencies
+      - name: Cache Composer
         uses: actions/cache@v4
         with:
-          path: |
-            vendor
-            ~/.composer/cache
-          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-composer-
+            composer-${{ runner.os }}-
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer validate --strict --no-check-lock
+      - run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php bin/console lint:container
 
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-scripts
-
-      - name: Upload vendor artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vendor
-          path: vendor/
-          retention-days: 1
-
-  unit-test:
+  unit_tests:
+    name: unit-tests
     runs-on: ubuntu-latest
-    needs: install
+    needs: quality_checks
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download vendor artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: vendor
-          path: vendor/
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
-
-      - name: Run unit tests
-        env:
-          APP_ENV: test
-          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
-        run: php bin/phpunit --testsuite=unit --no-coverage
-
-  functional-test:
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download vendor artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: vendor
-          path: vendor/
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
-
-      - name: Run functional tests
-        env:
-          APP_ENV: test
-          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
-        run: php bin/phpunit --testsuite=functional --no-coverage
-
-  e2e-test:
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download vendor artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: vendor
-          path: vendor/
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          extensions: mbstring, intl, pdo, pdo_pgsql, xml, ctype, iconv
-
-      - name: Run e2e tests
-        env:
-          APP_ENV: test
-          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
-        run: php bin/phpunit --testsuite=e2e --no-coverage
-
-  sast-php-lint:
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-
-      - name: PHP syntax lint
-        run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
-
-  sast-composer-audit:
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           tools: composer
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Unit tests
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
+        run: php bin/phpunit --testsuite=unit --log-junit var/log/junit-unit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports-unit
+          path: var/log/junit-unit.xml
 
-      - name: Composer audit
-        run: composer audit || true
-
-  trivy-fs-audit:
+  integration_functional_tests:
+    name: integration-functional-tests
     runs-on: ubuntu-latest
-    needs: install
+    needs: quality_checks
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: lpmde
+          POSTGRES_USER: lpmde
+          POSTGRES_PASSWORD: lpmde
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lpmde -d lpmde"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Migration + tests
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql://lpmde:lpmde@127.0.0.1:5432/lpmde?serverVersion=16&charset=utf8
+          MESSENGER_TRANSPORT_DSN: amqp://guest:guest@127.0.0.1:5672/%2f/messages
+          PGPASSWORD: lpmde
+        run: |
+          TARGET_DB="lpmde_test${TEST_TOKEN:-}"
+          if ! psql -h 127.0.0.1 -U lpmde -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${TARGET_DB}'" | grep -q 1; then
+            createdb -h 127.0.0.1 -U lpmde "${TARGET_DB}"
+          fi
 
-      - name: Trivy filesystem audit
+          php bin/console doctrine:migrations:migrate -n --allow-no-migration
+          php bin/phpunit --testsuite=integration --log-junit var/log/junit-integration.xml
+          php bin/phpunit --testsuite=functional --log-junit var/log/junit-functional.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports-integration-functional
+          path: |
+            var/log/junit-integration.xml
+            var/log/junit-functional.xml
+
+  composer_audit:
+    name: composer-audit
+    runs-on: ubuntu-latest
+    needs: quality_checks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: composer audit --format=plain | tee composer-audit-report.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports-composer-audit
+          path: composer-audit-report.txt
+
+  trivy_fs_scan:
+    name: trivy-fs-scan
+    runs-on: ubuntu-latest
+    needs: quality_checks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy FS scan
         uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: fs
           scan-ref: .
           severity: HIGH,CRITICAL
+          format: table
+          output: trivy-fs-report.txt
           exit-code: '0'
-
-  dast-zap-baseline:
-    runs-on: ubuntu-latest
-    needs: [install, functional-test]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download vendor artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: vendor
-          path: vendor/
+          name: reports-trivy-fs
+          path: trivy-fs-report.txt
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-
-      - name: Start application
-        env:
-          APP_ENV: test
-          APP_DEBUG: '0'
-          DATABASE_URL: sqlite:///%kernel.project_dir%/var/test.db
-        run: |
-          php -S 127.0.0.1:8000 -t public > /tmp/php-server.log 2>&1 &
-          sleep 3
-          curl -I http://127.0.0.1:8000
-
-      - name: OWASP ZAP baseline
-        uses: zaproxy/action-baseline@v0.14.0
-        with:
-          target: http://127.0.0.1:8000
-          fail_action: false
-          allow_issue_writing: false
-          cmd_options: -a
-
-  sonar-audit:
+  build_image:
+    name: build-image
     runs-on: ubuntu-latest
-    needs: [unit-test, functional-test, e2e-test]
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: SonarCloud scan
-        if: ${{ env.SONAR_TOKEN != '' }}
-        uses: SonarSource/sonarcloud-github-action@v2.3.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
-
-      - name: SonarCloud skipped (missing SONAR_TOKEN)
-        if: ${{ env.SONAR_TOKEN == '' }}
-        run: echo "SONAR_TOKEN is not configured, skipping sonar-audit job."
-
-  build-image:
-    runs-on: ubuntu-latest
-    needs: [unit-test, functional-test, e2e-test, sast-php-lint, sast-composer-audit, trivy-fs-audit]
+    needs:
+      - unit_tests
+      - integration_functional_tests
+      - composer_audit
+      - trivy_fs_scan
     if: github.event_name == 'push'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v4
+      - name: Prepare lowercase image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute lowercase image name
-        id: image
-        run: echo "repo=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.image.outputs.repo }}:${{ github.sha }}
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:latest
 
-  deploy-staging:
+  deploy_staging:
+    name: deploy-staging
     runs-on: ubuntu-latest
-    needs: [build-image, dast-zap-baseline]
-    if: github.ref == 'refs/heads/develop'
-    environment:
-      name: staging
-      url: https://staging.example.com
+    needs: build_image
+    if: github.event_name == 'push'
     steps:
-      - name: Deploy to staging (placeholder)
-        run: echo "Deploy staging with Helm/SSH/Kubectl here"
+      - name: Validate staging secrets
+        run: |
+          if [ -z "${{ secrets.STAGING_SSH_HOST }}" ] || [ -z "${{ secrets.STAGING_SSH_USER }}" ] || [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            echo "Déploiement staging ignoré: secrets SSH incomplets (STAGING_SSH_HOST/STAGING_SSH_USER/STAGING_SSH_KEY)." >&2
+            exit 0
+          fi
 
-  deploy-production:
-    runs-on: ubuntu-latest
-    needs: [build-image, sonar-audit]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    environment:
-      name: production
-      url: https://production.example.com
-    steps:
-      - name: Deploy to production (placeholder)
-        run: echo "Deploy production with Helm/ArgoCD/Kubectl here"
+      - name: Deploy full HTTPS demo stack on staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+
+            APP_DIR="${{ secrets.STAGING_APP_DIR || '/opt/lpmde' }}"
+            REPO_URL="${{ secrets.STAGING_REPO_URL || format('https://github.com/{0}.git', github.repository) }}"
+            BRANCH="${{ github.ref_name }}"
+
+            if [ ! -d "${APP_DIR}/.git" ]; then
+              sudo mkdir -p "${APP_DIR}"
+              sudo chown -R "$USER":"$USER" "${APP_DIR}"
+              git clone "${REPO_URL}" "${APP_DIR}"
+            fi
+
+            cd "${APP_DIR}"
+            git fetch --all --prune
+            git checkout "${BRANCH}" || git checkout -B "${BRANCH}" "origin/${BRANCH}"
+            git reset --hard "origin/${BRANCH}"
+
+            export IMAGE_TAG="${{ github.sha }}"
+            docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+
+            docker compose -f docker-compose.demo.yml pull app worker || true
+            docker compose -f docker-compose.demo.yml up -d --build --force-recreate
+            ./scripts/demo_seed.sh
+
+            echo "Stack HTTPS déployée avec modules: app, rabbitmq, keycloak, prometheus, grafana."

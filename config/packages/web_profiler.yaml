@@ -1,11 +1,2 @@
-when@dev:
-    web_profiler:
-        toolbar: true
-
-    framework:
-        profiler:
-            collect_serializer_data: true
-
-when@test:
-    framework:
-        profiler: { collect: false }
+# Désactivé pour la stack démo/no-dev.
+# Le bundle WebProfiler peut ne pas être présent dans l'image Docker.

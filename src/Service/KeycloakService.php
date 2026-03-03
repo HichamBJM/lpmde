@@ -7,6 +7,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class KeycloakService
 {
     private string $keycloakUrl;
+    private string $keycloakPublicUrl;
     private string $realm;
     private string $clientId;
     private string $clientSecret;
@@ -16,11 +17,12 @@ class KeycloakService
         private HttpClientInterface $httpClient
     ) {
         // Configuration Keycloak - À adapter selon votre installation
-        $this->keycloakUrl = $_ENV['KEYCLOAK_URL'] ?? 'http://localhost:8080';
-        $this->realm = $_ENV['KEYCLOAK_REALM'] ?? 'master';
-        $this->clientId = $_ENV['KEYCLOAK_CLIENT_ID'] ?? 'symfony-app';
-        $this->clientSecret = $_ENV['KEYCLOAK_CLIENT_SECRET'] ?? '';
-        $this->redirectUri = $_ENV['KEYCLOAK_REDIRECT_URI'] ?? 'http://localhost:8000/login/keycloak/callback';
+        $this->keycloakUrl = $this->env('KEYCLOAK_URL', 'http://localhost:8080');
+        $this->keycloakPublicUrl = $this->env('KEYCLOAK_PUBLIC_URL', $this->keycloakUrl);
+        $this->realm = $this->env('KEYCLOAK_REALM', 'master');
+        $this->clientId = $this->env('KEYCLOAK_CLIENT_ID', 'symfony-app');
+        $this->clientSecret = $this->env('KEYCLOAK_CLIENT_SECRET', '');
+        $this->redirectUri = $this->env('KEYCLOAK_REDIRECT_URI', 'http://localhost:8000/login/keycloak/callback');
     }
 
     public function getAuthorizationUrl(string $state): string
@@ -35,7 +37,7 @@ class KeycloakService
 
         return sprintf(
             '%s/realms/%s/protocol/openid-connect/auth?%s',
-            $this->keycloakUrl,
+            $this->keycloakPublicUrl,
             $this->realm,
             http_build_query($params)
         );
@@ -56,7 +58,7 @@ class KeycloakService
         return $response->toArray();
     }
 
-    public function getUserInfo(string $accessToken): array
+    public function getUserInfo(string $accessToken, ?string $idToken = null): array
     {
         $response = $this->httpClient->request('GET', $this->getUserInfoUrl(), [
             'headers' => [
@@ -64,7 +66,37 @@ class KeycloakService
             ],
         ]);
 
+        $statusCode = $response->getStatusCode();
+        if ($statusCode === 401 && null !== $idToken && '' !== $idToken) {
+            $fallbackUser = $this->decodeIdToken($idToken);
+            if ([] !== $fallbackUser) {
+                return $fallbackUser;
+            }
+        }
+
         return $response->toArray();
+    }
+
+    private function decodeIdToken(string $idToken): array
+    {
+        $parts = explode('.', $idToken);
+        if (count($parts) < 2) {
+            return [];
+        }
+
+        $payload = strtr($parts[1], '-_', '+/');
+        $padding = strlen($payload) % 4;
+        if ($padding > 0) {
+            $payload .= str_repeat('=', 4 - $padding);
+        }
+
+        $json = base64_decode($payload, true);
+        if (false === $json) {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : [];
     }
 
     private function getTokenUrl(): string
@@ -83,5 +115,14 @@ class KeycloakService
             $this->keycloakUrl,
             $this->realm
         );
+    }
+    private function env(string $name, string $default): string
+    {
+        $value = getenv($name);
+        if (false !== $value && '' !== $value) {
+            return (string) $value;
+        }
+
+        return $_SERVER[$name] ?? $_ENV[$name] ?? $default;
     }
 }

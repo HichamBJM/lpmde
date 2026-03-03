@@ -11,7 +11,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: migrations
-        image: ghcr.io/br-y-/lpmde_git:latest
+        image: ghcr.io/hichambjm/lpmde_git:latest
         imagePullPolicy: Always
         command:
         - /bin/bash

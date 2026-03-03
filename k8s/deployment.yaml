@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: lpmde-app
-        image: ghcr.io/br-y-/lpmde_git:latest
+        image: ghcr.io/hichambjm/lpmde:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80

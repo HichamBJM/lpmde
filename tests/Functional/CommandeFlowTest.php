@@ -39,8 +39,8 @@ class CommandeFlowTest extends WebTestCase
 
         $client->request('GET', '/commandes');
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('a', 'Mes commandes');
-        self::assertSelectorTextContains('a', 'Commandes à traiter');
+        self::assertSelectorTextContains('a[href="/commandes?tab=mine"]', 'Mes commandes');
+        self::assertSelectorTextContains('a[href="/commandes?tab=to-process"]', 'Commandes à traiter');
     }
 
     public function testAdminCanUpdateOrderStatuses(): void

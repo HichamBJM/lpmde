@@ -183,19 +183,23 @@ jobs:
     if: github.event_name == 'push'
     steps:
       - name: Validate staging secrets
+        id: validate_staging
         run: |
           if [ -z "${{ secrets.STAGING_SSH_HOST }}" ] || [ -z "${{ secrets.STAGING_SSH_USER }}" ] || [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
             echo "Déploiement staging ignoré: secrets SSH incomplets (STAGING_SSH_HOST/STAGING_SSH_USER/STAGING_SSH_KEY)." >&2
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          echo "should_deploy=true" >> "$GITHUB_OUTPUT"
 
       - name: Deploy full HTTPS demo stack on staging
+        if: steps.validate_staging.outputs.should_deploy == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
-          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
+          port: ${{ secrets.STAGING_SSH_PORT || '22' }}
           script: |
             set -euo pipefail
 

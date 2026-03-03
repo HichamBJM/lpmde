@@ -182,9 +182,43 @@ jobs:
     needs: build_image
     if: github.event_name == 'push'
     steps:
-      - run: |
-          if [ -z "${{ secrets.STAGING_SSH_HOST }}" ] || [ -z "${{ secrets.STAGING_SSH_USER }}" ]; then
-            echo "Secrets de staging non définis: déploiement staging ignoré sans échec."
+      - name: Validate staging secrets
+        run: |
+          if [ -z "${{ secrets.STAGING_SSH_HOST }}" ] || [ -z "${{ secrets.STAGING_SSH_USER }}" ] || [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            echo "Déploiement staging ignoré: secrets SSH incomplets (STAGING_SSH_HOST/STAGING_SSH_USER/STAGING_SSH_KEY)." >&2
             exit 0
           fi
-          echo "Préparer ici: ssh + docker compose pull/up ou ansible pour staging."
+
+      - name: Deploy full HTTPS demo stack on staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+
+            APP_DIR="${{ secrets.STAGING_APP_DIR || '/opt/lpmde' }}"
+            REPO_URL="${{ secrets.STAGING_REPO_URL || format('https://github.com/{0}.git', github.repository) }}"
+            BRANCH="${{ github.ref_name }}"
+
+            if [ ! -d "${APP_DIR}/.git" ]; then
+              sudo mkdir -p "${APP_DIR}"
+              sudo chown -R "$USER":"$USER" "${APP_DIR}"
+              git clone "${REPO_URL}" "${APP_DIR}"
+            fi
+
+            cd "${APP_DIR}"
+            git fetch --all --prune
+            git checkout "${BRANCH}" || git checkout -B "${BRANCH}" "origin/${BRANCH}"
+            git reset --hard "origin/${BRANCH}"
+
+            export IMAGE_TAG="${{ github.sha }}"
+            docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+
+            docker compose -f docker-compose.demo.yml pull app worker || true
+            docker compose -f docker-compose.demo.yml up -d --build --force-recreate
+            ./scripts/demo_seed.sh
+
+            echo "Stack HTTPS déployée avec modules: app, rabbitmq, keycloak, prometheus, grafana."
